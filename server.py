@@ -1,18 +1,72 @@
 #!/usr/bin/env python3
 """DashView — Mobile dashboard server for Polymarket shadow trading."""
 from __future__ import annotations
-import argparse, json, os, sys, time
+import argparse, json, os, sys, time, logging
 from pathlib import Path
 
-BOT_DIR = Path(os.environ.get("BOT_DIR", "/opt/polymarket-bot"))
-sys.path.insert(0, str(BOT_DIR))
+# ── Logging ────────────────────────────────────────────────────────────────
+log_file = os.environ.get("DASHVIEW_LOG", "/var/log/dashview.log")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.StreamHandler(),
+        *([] if not os.access(str(Path(log_file).parent), os.W_OK)
+          else [logging.FileHandler(log_file)]),
+    ],
+)
+logger = logging.getLogger("dashview")
+
+# ── Config ─────────────────────────────────────────────────────────────────
+class Config:
+    # Paths
+    BOT_DIR       = Path(os.environ.get("BOT_DIR", "/opt/polymarket-bot"))
+    DASHVIEW_HOME = Path(os.environ.get("DASHVIEW_HOME", "/opt/dashview"))
+    SCREEN_DIR    = Path(os.environ.get("PM_SCREEN_DIR", "/tmp/screen-v3"))
+
+    # Trading
+    CAPITAL       = float(os.environ.get("CAPITAL", 500))
+    RISK_PCT      = float(os.environ.get("RISK_PCT", 1.5)) / 100
+    DECISION_DATE = int(os.environ.get("DECISION_DATE", 1751155200))
+
+    # SSL
+    SSL_CERT      = os.environ.get("SSL_CERT_PATH",
+                    "/etc/letsencrypt/live/YOUR_DOMAIN/fullchain.pem")
+    SSL_KEY       = os.environ.get("SSL_KEY_PATH",
+                    "/etc/letsencrypt/live/YOUR_DOMAIN/privkey.pem")
+
+    # Bot
+    BOT_NAME      = os.environ.get("BOT_NAME", "Atlas")
+
+cfg = Config()
+
+sys.path.insert(0, str(cfg.BOT_DIR))
+
+logger.info(f"DashView starting — BOT_DIR={cfg.BOT_DIR}, "
+            f"DASHVIEW_HOME={cfg.DASHVIEW_HOME}, "
+            f"capital=${cfg.CAPITAL}, risk={cfg.RISK_PCT*100}%")
 
 from flask import Flask, jsonify, send_from_directory
-app = Flask(__name__, static_folder="static")
+app = Flask(__name__, static_folder=str(cfg.DASHVIEW_HOME / "static"))
 
-RISK_PCT = 0.015  # 1.5% risk per trade
-CAPITAL = 500.0   # starting capital
-DECISION_DATE = 1751155200  # June 27 2026 midnight UTC
+# Legacy aliases (keeps rest of file working without changes)
+BOT_DIR       = cfg.BOT_DIR
+RISK_PCT      = cfg.RISK_PCT
+CAPITAL       = cfg.CAPITAL
+DECISION_DATE = cfg.DECISION_DATE
+
+# ── Request timeout (circuit breaker) ──────────────────────────────────────
+# Timeouts enforced at the API call level (httpx timeout=8s per call)
+from functools import wraps
+
+def with_timeout(seconds=20):
+    """No-op decorator — timeouts handled at httpx call level."""
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            return f(*args, **kwargs)
+        return wrapper
+    return decorator
 
 def get_shadow_pnl():
     try:
@@ -29,6 +83,7 @@ def get_shadow_pnl():
                 result.append({"name": name, "combined": 0, "resolved": 0, "unrealized": 0, "open_positions": 0, "active": False})
         return result
     except Exception as e:
+        logger.error(f"get_shadow_pnl failed: {e}")
         return [{"error": str(e)}]
 
 def get_live_pnl():
@@ -52,6 +107,7 @@ def get_live_pnl():
             "paper_mode": pnl.realized_pnl == 0 and pnl.realized_wins == 0,
         }
     except Exception as e:
+        logger.error(f"get_live_pnl failed: {e}")
         return {"error": str(e)}
 
 def get_sizing_estimate(shadow_wallets):
@@ -91,6 +147,7 @@ def get_sizing_estimate(shadow_wallets):
             "wallets": wallets,
         }
     except Exception as e:
+        logger.error(f"get_screener_results failed: {e}")
         return {"error": str(e)}
 
 def get_bot_status():
@@ -108,11 +165,12 @@ def get_bot_status():
                     break
         return {"running": status == "active", "status": status, "last_log": last_line, "bot_name": os.environ.get("BOT_NAME", "Atlas")}
     except Exception as e:
+        logger.error(f"get_bot_status failed: {e}")
         return {"running": False, "status": "unknown", "error": str(e)}
 
 def get_screener_results():
     try:
-        screen_dir = Path(os.environ.get("PM_SCREEN_DIR", "/tmp/screen-v3"))
+        screen_dir = cfg.SCREEN_DIR
         verified = {}
         vpath = screen_dir / "verified_passers.json"
         if vpath.exists():
@@ -144,6 +202,7 @@ def get_screener_results():
         return {"error": str(e)}
 
 @app.route("/api/data")
+@with_timeout(25)
 def api_data():
     shadow = get_shadow_pnl()
     return jsonify({
@@ -170,7 +229,7 @@ def api_positions(trader):
             for line in f:
                 try:
                     d = json.loads(line)
-                except:
+                except Exception as e:
                     continue
                 if d.get("trader") != trader:
                     continue
@@ -246,6 +305,7 @@ def api_run_scanner():
         )
         return jsonify({"ok": True})
     except Exception as e:
+        logger.error(f"Promote failed: {e}")
         return jsonify({"ok": False, "error": str(e)})
 
 @app.route("/api/run-network", methods=["POST"])
@@ -264,7 +324,7 @@ def api_run_network():
 def api_screener_history():
     try:
         import json
-        screen_dir = Path(os.environ.get("PM_SCREEN_DIR", "/tmp/screen-v3"))
+        screen_dir = cfg.SCREEN_DIR
         history_path = screen_dir / "scan_history.json"
 
         # Load existing history
@@ -272,7 +332,7 @@ def api_screener_history():
         if history_path.exists():
             try:
                 history = json.loads(history_path.read_text())
-            except:
+            except Exception as e:
                 history = []
 
         # Add current scan as latest entry if metrics.json exists
@@ -363,7 +423,25 @@ def api_promote():
 
 @app.route("/api/health")
 def api_health():
-    return jsonify({"ok": True})
+    import subprocess
+    checks = {
+        "server": True,
+        "bot_dir": cfg.BOT_DIR.exists(),
+        "screen_dir": cfg.SCREEN_DIR.exists(),
+        "log_readable": (cfg.BOT_DIR / "logs" / "shadow_decisions.jsonl").exists(),
+        "ssl_cert": Path(cfg.SSL_CERT).exists(),
+        "dashview_home": cfg.DASHVIEW_HOME.exists(),
+    }
+    try:
+        result = subprocess.run(["systemctl", "is-active", "tradingbot-copy-bot"],
+                                capture_output=True, text=True)
+        checks["bot_running"] = result.stdout.strip() == "active"
+    except Exception:
+        checks["bot_running"] = False
+    all_ok = all(checks.values())
+    if not all_ok:
+        logger.warning(f"Health check failed: {[k for k,v in checks.items() if not v]}")
+    return jsonify({"ok": all_ok, "checks": checks}), 200 if all_ok else 503
 
 @app.route("/")
 def index():
@@ -387,7 +465,7 @@ def api_chart():
             for line in f:
                 try:
                     d = json.loads(line)
-                except:
+                except Exception as e:
                     continue
                 if d.get("decision") != "shadow_resolution":
                     continue
@@ -404,7 +482,7 @@ def api_chart():
             if pnl_cache.realized_pnl != 0:
                 today = datetime.now().strftime("%Y-%m-%d")
                 live_daily[today] = pnl_cache.realized_pnl
-        except:
+        except Exception as e:
             pass
 
         all_days = sorted(set(list(shadow_daily.keys()) + list(live_daily.keys())))
@@ -435,7 +513,7 @@ def api_chart():
             for line in f2:
                 try:
                     d = json.loads(line)
-                except:
+                except Exception as e:
                     continue
                 cid = d.get("condition_id", "")
                 decision = d.get("decision", "")
@@ -461,7 +539,7 @@ def api_chart():
 def api_watchlist_get():
     try:
         import json
-        wl_path = Path("/opt/dashview/watchlist.json")
+        wl_path = cfg.DASHVIEW_HOME / "watchlist.json"
         if not wl_path.exists():
             return jsonify({"wallets": []})
         return jsonify({"wallets": json.loads(wl_path.read_text())})
@@ -477,7 +555,7 @@ def api_watchlist_post():
         action = data.get("action")
         address = (data.get("address") or "").lower().strip()
         label = data.get("label", address[:10])
-        wl_path = Path("/opt/dashview/watchlist.json")
+        wl_path = cfg.DASHVIEW_HOME / "watchlist.json"
         wallets = json.loads(wl_path.read_text()) if wl_path.exists() else []
         if action == "add":
             if not address.startswith("0x") or len(address) < 20:
@@ -496,16 +574,17 @@ def api_watchlist_post():
         return jsonify({"ok": False, "error": str(e)})
 
 @app.route("/api/watchlist/pnl")
+@with_timeout(20)
 def api_watchlist_pnl():
     try:
         import json
-        wl_path = Path("/opt/dashview/watchlist.json")
+        wl_path = cfg.DASHVIEW_HOME / "watchlist.json"
         if not wl_path.exists():
             return jsonify({"wallets": []})
         wallets = json.loads(wl_path.read_text())
         results = []
         from src.data_sources.data_api import DataApiClient
-        with DataApiClient() as api:
+        with DataApiClient(timeout=8) as api:
             for w in wallets[:10]:
                 try:
                     import httpx as _hx
@@ -513,7 +592,7 @@ def api_watchlist_pnl():
                     lb = {}
                     try:
                         r = _hx.get("https://lb-api.polymarket.com/portfolio",
-                                    params={"address": addr}, timeout=15)
+                                    params={"address": addr}, timeout=8)
                         if r.status_code == 200:
                             lb = r.json() or {}
                     except Exception:
@@ -531,7 +610,7 @@ def api_watchlist_pnl():
                         "unrealized": round(float(lb.get("unrealizedPnl") or 0), 2),
                         "positions": int(lb.get("openPositionsCount") or 0),
                     })
-                except:
+                except Exception as e:
                     results.append({"address": w["address"], "label": w.get("label",""), "error": True})
         return jsonify({"wallets": results})
     except Exception as e:
@@ -542,6 +621,7 @@ import re
 ADDR_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
 
 @app.route("/api/trader/<addr>")
+@with_timeout(15)
 def api_trader(addr):
     addr = (addr or "").strip().lower()
     if not ADDR_RE.fullmatch(addr):
@@ -554,9 +634,10 @@ def api_trader(addr):
         label = ""
         positions = 0
         predictions = 0
+        REQUEST_TIMEOUT = 8
 
         # Source 1: check screener results (verified_passers.json)
-        screen_dir = Path(os.environ.get("PM_SCREEN_DIR", "/tmp/screen-v3"))
+        screen_dir = cfg.SCREEN_DIR
         for fname in ("verified_passers.json", "all_verified_passers.json", "passers.json"):
             fpath = screen_dir / fname
             if not fpath.exists():
@@ -578,7 +659,7 @@ def api_trader(addr):
         if all_time is None:
             try:
                 r = httpx.get("https://lb-api.polymarket.com/profit",
-                              params={"window": "All", "limit": 50}, timeout=15)
+                              params={"window": "All", "limit": 50}, timeout=REQUEST_TIMEOUT)
                 if r.status_code == 200:
                     for entry in (r.json() or []):
                         if (entry.get("proxyWallet") or "").lower() == addr:
@@ -589,7 +670,7 @@ def api_trader(addr):
                 pass
 
         # Source 2: data-api profile + positions
-        with DataApiClient() as api:
+        with DataApiClient(timeout=8) as api:
             try:
                 prof = api.get_profile(addr) or {}
                 if not label:
@@ -626,7 +707,7 @@ def api_trader(addr):
 def api_watchlist_export():
     from flask import Response, request
     import json, csv, io
-    wl_path = Path("/opt/dashview/watchlist.json")
+    wl_path = cfg.DASHVIEW_HOME / "watchlist.json"
     wallets = json.loads(wl_path.read_text()) if wl_path.exists() else []
     if request.args.get("format") == "json":
         return Response(json.dumps(wallets, indent=2), mimetype="application/json",
@@ -655,7 +736,7 @@ def api_watchlist_import():
             rows.append((r[0] if len(r) > 0 else "", r[1] if len(r) > 1 else ""))
     else:
         return jsonify({"ok": False, "error": "Provide 'wallets' (array) or 'csv' (text)"}), 400
-    wl_path = Path("/opt/dashview/watchlist.json")
+    wl_path = cfg.DASHVIEW_HOME / "watchlist.json"
     wallets = json.loads(wl_path.read_text()) if wl_path.exists() else []
     have = {w["address"].lower() for w in wallets}
     added = skipped = bad = 0
@@ -673,7 +754,7 @@ def api_watchlist_import():
 def api_config_get():
     try:
         import json
-        cfg_path = Path("/opt/dashview/config.json")
+        cfg_path = cfg.DASHVIEW_HOME / "config.json"
         if not cfg_path.exists():
             return jsonify({
                 "bot_name": os.environ.get("BOT_NAME", "Atlas"),
@@ -706,12 +787,18 @@ After=network.target
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/opt/dashview
-ExecStart=/opt/polymarket-bot/.venv/bin/python /opt/dashview/server.py --port {port}
+WorkingDirectory={str(cfg.DASHVIEW_HOME)}
+ExecStart={str(cfg.BOT_DIR)}/.venv/bin/python {str(cfg.DASHVIEW_HOME)}/server.py --port {port}
 Restart=always
 RestartSec=5
 Environment=BOT_DIR={bot_dir}
 Environment=BOT_NAME={bot_name}
+Environment=DASHVIEW_HOME={str(cfg.DASHVIEW_HOME)}
+Environment=CAPITAL={cfg.CAPITAL}
+Environment=RISK_PCT={cfg.RISK_PCT * 100}
+Environment=SSL_CERT_PATH={cfg.SSL_CERT}
+Environment=SSL_KEY_PATH={cfg.SSL_KEY}
+Environment=DOMAIN={data.get("domain", "")}
 
 [Install]
 WantedBy=multi-user.target
@@ -724,6 +811,7 @@ WantedBy=multi-user.target
         return jsonify({"ok": False, "error": str(e)})
 
 @app.route("/api/simulation")
+@with_timeout(20)
 def api_simulation():
     try:
         import json
@@ -742,18 +830,18 @@ def api_simulation():
                 cfg = json.loads(cfg_path.read_text())
                 capital = float(cfg.get("capital", 500))
                 risk_pct = float(cfg.get("risk_pct", 1.5)) / 100
-            except:
+            except Exception as e:
                 pass
         # URL params override config
         if request.args.get("capital"):
             try:
                 capital = float(request.args.get("capital"))
-            except:
+            except Exception as e:
                 pass
         if request.args.get("risk"):
             try:
                 risk_pct = float(request.args.get("risk")) / 100
-            except:
+            except Exception as e:
                 pass
 
         bet_size = round(capital * risk_pct, 2)
@@ -766,7 +854,7 @@ def api_simulation():
                     d = json.loads(line)
                     if d.get("decision") in ("copy", "shadow_resolution"):
                         events.append(d)
-                except:
+                except Exception as e:
                     pass
 
         events.sort(key=lambda x: int(x.get("timestamp", 0)))
@@ -861,16 +949,21 @@ if __name__ == "__main__":
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=443)
     args = parser.parse_args()
-    try:
-        context = _ssl.SSLContext(_ssl.PROTOCOL_TLS_SERVER)
-        context.load_cert_chain(
-            "/etc/letsencrypt/live/YOUR_DOMAIN.duckdns.org/fullchain.pem",
-            "/etc/letsencrypt/live/YOUR_DOMAIN.duckdns.org/privkey.pem"
-        )
-        print(f"DashView HTTPS running at https://YOUR_DOMAIN.duckdns.org")
-        app.run(host=args.host, port=args.port, ssl_context=context, debug=False)
-    except Exception as e:
-        print(f"HTTPS failed ({e}), falling back to HTTP on port 8080")
+    cert = cfg.SSL_CERT
+    key  = cfg.SSL_KEY
+    if Path(cert).exists() and Path(key).exists():
+        try:
+            context = _ssl.SSLContext(_ssl.PROTOCOL_TLS_SERVER)
+            context.load_cert_chain(cert, key)
+            domain = os.environ.get("DOMAIN", "your-domain")
+            logger.info(f"DashView HTTPS running at https://{domain}:{args.port}")
+            app.run(host=args.host, port=args.port, ssl_context=context, debug=False)
+        except Exception as e:
+            logger.error(f"HTTPS failed: {e} — falling back to HTTP on port 8080")
+            app.run(host=args.host, port=8080, debug=False)
+    else:
+        logger.warning(f"SSL cert not found at {cert} — running HTTP on port 8080")
+        logger.warning("Set SSL_CERT_PATH and SSL_KEY_PATH env vars for HTTPS")
         app.run(host=args.host, port=8080, debug=False)
 
 @app.route("/api/events")
@@ -888,7 +981,7 @@ def api_events():
                 for line in f:
                     try:
                         d = json.loads(line)
-                    except:
+                    except Exception as e:
                         continue
                     ts = int(d.get("timestamp", 0))
                     if ts <= since:
@@ -911,7 +1004,7 @@ def api_events():
             result = subprocess.run(["systemctl", "is-active", "tradingbot-copy-bot"], capture_output=True, text=True)
             bot_running = result.stdout.strip() == "active"
             events.append({"type": "bot_status", "timestamp": int(time.time()), "running": bot_running})
-        except:
+        except Exception as e:
             pass
 
         # Check live trades from pnl cache
@@ -920,7 +1013,7 @@ def api_events():
             pnl = get_cached_pnl()
             if pnl.realized_wins > 0 or pnl.realized_losses > 0:
                 events.append({"type": "live_status", "timestamp": int(time.time()), "wins": pnl.realized_wins, "losses": pnl.realized_losses, "pnl": round(pnl.realized_pnl, 2)})
-        except:
+        except Exception as e:
             pass
 
         return jsonify({"events": events[-50:], "server_time": int(time.time())})
@@ -936,10 +1029,8 @@ def run_https():
     parser.add_argument("--port", type=int, default=443)
     args = parser.parse_args()
     context = _ssl.SSLContext(_ssl.PROTOCOL_TLS_SERVER)
-    context.load_cert_chain(
-        '/etc/letsencrypt/live/YOUR_DOMAIN.duckdns.org/fullchain.pem',
-        '/etc/letsencrypt/live/YOUR_DOMAIN.duckdns.org/privkey.pem'
-    )
-    print(f"DashView HTTPS running at https://YOUR_DOMAIN.duckdns.org")
+    context.load_cert_chain(cfg.SSL_CERT, cfg.SSL_KEY)
+    domain = os.environ.get("DOMAIN", "your-domain")
+    logger.info(f"DashView HTTPS running at https://{domain}:{args.port}")
     app.run(host=args.host, port=args.port, ssl_context=context, debug=False)
 
