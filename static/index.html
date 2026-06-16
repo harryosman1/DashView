@@ -1,0 +1,1544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="DashView">
+<meta name="theme-color" content="#0a0a0f">
+<title>DashView</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0a0a0f;--surface:#12121a;--surface2:#1a1a26;--border:#ffffff0f;--text:#e8e8f0;--muted:#6b6b80;--green:#00e5a0;--green-dim:#00e5a015;--red:#ff4d6d;--red-dim:#ff4d6d15;--blue:#4d8fff;--blue-dim:#4d8fff15;--yellow:#ffd166;--yellow-dim:#ffd16615;--mono:'JetBrains Mono',monospace;--sans:'Inter',sans-serif;--radius:16px;--radius-sm:10px}
+html,body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased}body.light-mode{--bg:#f0f0f7;--surface:#ffffff;--surface2:#e8e8f0;--border:#d0d0e0;--text:#0a0a0f;--muted:#666688;--green:#00a870;--green-dim:#00a87020;--red:#e0364a;--red-dim:#e0364a20;--blue:#2b6ee0;--blue-dim:#2b6ee020;--yellow:#c8960a;--yellow-dim:#c8960a20;}
+.header{position:sticky;top:0;z-index:100;background:var(--bg);border-bottom:1px solid var(--border);padding:16px 20px 12px;display:flex;align-items:center;justify-content:space-between;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+.header-left{display:flex;align-items:center;gap:10px}
+.logo{width:32px;height:32px;background:linear-gradient(135deg,var(--green),var(--blue));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:#000}
+.header-title{font-size:17px;font-weight:600;letter-spacing:-0.3px}
+.header-sub{font-size:11px;color:var(--muted);font-family:var(--mono)}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);transition:background 0.3s}
+.status-dot.online{background:var(--green);box-shadow:0 0 8px var(--green)}
+.status-dot.offline{background:var(--red)}
+.content{padding:16px 16px 100px;max-width:480px;margin:0 auto}
+.section-label{font-size:11px;font-weight:500;letter-spacing:0.8px;text-transform:uppercase;color:var(--muted);margin:24px 0 10px 4px}
+.summary-bar{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:4px}
+.summary-item{text-align:center}
+.summary-val{font-family:var(--mono);font-size:18px;font-weight:500;line-height:1;margin-bottom:4px}
+.summary-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px}
+.pos{color:var(--green)}.neg{color:var(--red)}.neu{color:var(--text)}
+.wallet-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px}
+.wallet-card.inactive{opacity:0.5}
+.wallet-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.wallet-left{display:flex;align-items:center;gap:10px}
+.wallet-avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0}
+.wallet-name{font-size:14px;font-weight:500;letter-spacing:-0.2px}
+.wallet-status{font-size:10px;color:var(--muted);margin-top:2px}
+.wallet-combined{font-family:var(--mono);font-size:17px;font-weight:500;text-align:right}
+.wallet-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.wallet-stat{background:var(--surface2);border-radius:var(--radius-sm);padding:8px 10px}
+.wallet-stat-val{font-family:var(--mono);font-size:13px;font-weight:500;margin-bottom:2px}
+.wallet-stat-lbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px}
+.bot-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
+.bot-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.bot-name{font-size:15px;font-weight:500;display:flex;align-items:center;gap:8px}
+.bot-badge{font-size:10px;padding:3px 8px;border-radius:20px;font-weight:500;letter-spacing:0.3px}
+.bot-badge.running{background:var(--green-dim);color:var(--green)}
+.bot-badge.stopped{background:var(--red-dim);color:var(--red)}
+.bot-badge.paper{background:var(--yellow-dim);color:var(--yellow)}
+.bot-log{font-family:var(--mono);font-size:10px;color:var(--muted);background:var(--surface2);border-radius:var(--radius-sm);padding:8px 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.screener-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
+.screener-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)}
+.screener-row:last-child{border-bottom:none;padding-bottom:0}
+.screener-row:first-child{padding-top:0}
+.screener-label{font-size:13px;color:var(--muted)}
+.screener-val{font-family:var(--mono);font-size:13px;font-weight:500}
+.screener-time{font-size:10px;color:var(--muted);font-family:var(--mono)}
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--bg);border-top:1px solid var(--border);display:flex;padding:6px 8px max(6px,env(safe-area-inset-bottom));gap:4px;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 2px;cursor:pointer;color:var(--muted);font-size:9px;letter-spacing:0px;transition:color 0.2s;border:none;background:none;-webkit-tap-highlight-color:transparent}
+.nav-item.active{color:var(--green)}
+.nav-icon{font-size:30px;line-height:1}
+.refresh-btn{background:none;border:1px solid var(--border);color:var(--muted);border-radius:20px;padding:5px 12px;font-size:11px;font-family:var(--sans);cursor:pointer;display:flex;align-items:center;gap:5px;-webkit-tap-highlight-color:transparent}
+.refresh-btn:active{color:var(--green);border-color:var(--green)}
+.skeleton{background:linear-gradient(90deg,var(--surface) 25%,var(--surface2) 50%,var(--surface) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:6px;height:16px}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.last-updated{text-align:center;font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:16px}
+.page{display:none}.page.active{display:block}
+.position-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between}
+.position-market{font-size:13px;font-weight:500;margin-bottom:3px;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.position-meta{font-size:11px;color:var(--muted)}
+.position-pnl{font-family:var(--mono);font-size:14px;font-weight:500}
+.empty-state{text-align:center;padding:48px 24px;color:var(--muted);font-size:14px}
+.empty-icon{font-size:32px;margin-bottom:12px}
+.av-blue{background:#4d8fff20;color:var(--blue)}
+.av-green{background:#00e5a020;color:var(--green)}
+.av-yellow{background:#ffd16620;color:var(--yellow)}
+.av-red{background:#ff4d6d20;color:var(--red)}
+.toggle{position:relative;display:inline-block;width:44px;height:26px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0}
+.slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:var(--surface2);border-radius:26px;transition:.3s;border:1px solid var(--border)}
+.slider:before{position:absolute;content:"";height:18px;width:18px;left:3px;bottom:3px;background:var(--muted);border-radius:50%;transition:.3s}
+input:checked+.slider{background:var(--green-dim);border-color:var(--green)}
+input:checked+.slider:before{transform:translateX(18px);background:var(--green)}
+.countdown-card{background:linear-gradient(135deg,#1a1a26,#12121a);border:1px solid var(--blue);border-radius:var(--radius);padding:20px;text-align:center;margin-bottom:4px}
+.countdown-num{font-family:var(--mono);font-size:48px;font-weight:600;color:var(--blue);line-height:1}
+.countdown-label{font-size:12px;color:var(--muted);margin-top:6px;letter-spacing:0.5px}
+.countdown-date{font-size:11px;color:var(--blue);margin-top:4px;font-family:var(--mono)}
+.sizing-hero{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:10px}
+.sizing-big{font-family:var(--mono);font-size:32px;font-weight:600;margin-bottom:4px}
+.sizing-sub{font-size:12px;color:var(--muted)}
+.info-banner{background:var(--yellow-dim);border:1px solid #ffd16630;border-radius:var(--radius-sm);padding:10px 14px;font-size:12px;color:var(--yellow);margin-bottom:16px;line-height:1.5}
+.live-banner{background:var(--green-dim);border:1px solid #00e5a030;border-radius:var(--radius-sm);padding:10px 14px;font-size:12px;color:var(--green);margin-bottom:16px;line-height:1.5}
+
+/* Find a Trader */
+.find-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px}
+.find-row{display:flex;gap:8px}
+.find-input{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:11px 12px;font-size:13px;font-family:var(--mono);color:var(--text);outline:none;transition:border-color .15s}
+.find-input::placeholder{color:var(--muted)}
+.find-input:focus-visible{border-color:var(--blue)}
+.btn-primary{padding:11px 16px;background:var(--blue);border:none;border-radius:var(--radius-sm);color:#fff;font-size:13px;font-weight:600;font-family:var(--sans);cursor:pointer;white-space:nowrap}
+.btn-primary:active{filter:brightness(.92)}
+.find-msg{font-size:12px;margin-top:10px;min-height:16px;color:var(--muted)}
+.preview-empty{margin-top:12px;border:1px dashed var(--border);border-radius:var(--radius-sm);padding:24px 18px;text-align:center;color:var(--muted);font-size:13px;line-height:1.5}
+.preview-empty .icon{font-size:26px;display:block;margin-bottom:8px;opacity:.85}
+.preview-error{margin-top:12px;border:1px solid var(--red);background:var(--red-dim);border-radius:var(--radius-sm);padding:16px 18px;color:var(--red);font-size:13px;line-height:1.5}
+
+/* Trader card */
+.trader-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px}
+.trader-card.is-preview{margin-top:12px;border-color:var(--blue);box-shadow:0 0 0 1px var(--blue-dim)}
+.tc-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.tc-left{display:flex;align-items:center;gap:11px;min-width:0}
+.tc-avatar{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;flex-shrink:0}
+.tc-name{font-size:14px;font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tc-addr{display:flex;align-items:center;gap:6px;margin-top:3px}
+.tc-addr code{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.copy-btn{font-family:var(--sans);font-size:10px;font-weight:500;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:2px 7px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.copy-btn.copied{color:var(--green);border-color:var(--green)}
+.tc-combined{font-family:var(--mono);font-size:18px;font-weight:600;text-align:right;line-height:1.1;white-space:nowrap}
+.tc-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.tc-stat{background:var(--surface2);border-radius:var(--radius-sm);padding:9px 11px}
+.tc-stat-val{font-family:var(--mono);font-size:14px;font-weight:600;margin-bottom:2px}
+.tc-stat-lbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+.tc-actions{display:flex;gap:6px;margin-top:12px}
+.tc-link{display:block;text-align:center;margin-top:10px;font-size:11px;color:var(--muted);text-decoration:none;font-family:var(--mono)}
+.tc-link:hover{color:var(--blue)}
+
+/* Button system */
+.btn{flex:1;padding:9px 6px;border-radius:var(--radius-sm);font-size:12px;font-weight:600;font-family:var(--sans);cursor:pointer;border:1px solid var(--border);-webkit-tap-highlight-color:transparent}
+.btn-watch{background:var(--blue-dim);color:var(--blue);border-color:var(--blue)}
+.btn-shadow{background:var(--surface2);color:var(--text)}
+.btn-live{background:var(--green-dim);color:var(--green);border-color:var(--green)}
+
+/* Import/export buttons */
+.wl-io-row{display:flex;gap:8px;margin-bottom:10px}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="header-left">
+    <div class="logo">D</div>
+    <div>
+      <div class="header-title">DashView</div>
+      <div class="header-sub" id="bot-name">Loading…</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <div class="status-dot" id="status-dot"></div>
+    <button class="refresh-btn" onclick="loadData()">↻ Refresh</button>
+  </div>
+</div>
+<div class="content">
+
+  <!-- SHADOW TAB -->
+  <div class="page active" id="page-shadow">
+    <p class="section-label">Portfolio Summary</p>
+    <div class="summary-bar">
+      <div class="summary-item"><div class="summary-val" id="sum-combined">—</div><div class="summary-lbl">Combined</div></div>
+      <div class="summary-item"><div class="summary-val" id="sum-resolved">—</div><div class="summary-lbl">Resolved</div></div>
+      <div class="summary-item"><div class="summary-val" id="sum-positions">—</div><div class="summary-lbl">Open Pos</div></div>
+    </div>
+    <p class="section-label">Shadow Roster</p>
+    <div id="wallet-list"><div class="wallet-card"><div class="skeleton" style="width:60%;margin-bottom:8px;"></div><div class="skeleton" style="width:40%;"></div></div></div>
+    <p class="section-label">Bot Status</p>
+    <div class="bot-card" id="bot-card"><div class="skeleton" style="width:50%;margin-bottom:8px;"></div><div class="skeleton" style="width:100%;height:32px;"></div></div>
+    <p class="section-label">Last Screener Run</p>
+    <div class="screener-card" id="screener-card"><div class="skeleton" style="width:80%;margin-bottom:8px;"></div><div class="skeleton" style="width:60%;"></div></div>
+    <div class="last-updated" id="last-updated">—</div>
+  </div>
+
+  <!-- LIVE TAB -->
+  <div class="page" id="page-live">
+    <div id="live-banner-area"></div>
+    <p class="section-label">Live Portfolio</p>
+    <div class="summary-bar">
+      <div class="summary-item"><div class="summary-val" id="live-combined">—</div><div class="summary-lbl">Combined</div></div>
+      <div class="summary-item"><div class="summary-val" id="live-realized">—</div><div class="summary-lbl">Realized</div></div>
+      <div class="summary-item"><div class="summary-val" id="live-unrealized">—</div><div class="summary-lbl">Unrealized</div></div>
+    </div>
+    <p class="section-label">Performance</p>
+    <div class="screener-card" id="live-perf-card">
+      <div class="screener-row"><span class="screener-label">Starting capital</span><span class="screener-val" id="live-capital">—</span></div>
+      <div class="screener-row"><span class="screener-label">Total value</span><span class="screener-val" id="live-total">—</span></div>
+      <div class="screener-row"><span class="screener-label">Return</span><span class="screener-val" id="live-return">—</span></div>
+      <div class="screener-row"><span class="screener-label">Today P&L</span><span class="screener-val" id="live-today">—</span></div>
+      <div class="screener-row"><span class="screener-label">7d P&L</span><span class="screener-val" id="live-7d">—</span></div>
+      <div class="screener-row"><span class="screener-label">Win rate</span><span class="screener-val" id="live-wr">—</span></div>
+      <div class="screener-row"><span class="screener-label">W / L</span><span class="screener-val" id="live-wl">—</span></div>
+      <div class="screener-row" style="border-bottom:none;"><span class="screener-label">Drawdown</span><span class="screener-val" id="live-dd">—</span></div>
+    </div>
+  </div>
+
+  <!-- SIZING TAB -->
+  <div class="page" id="page-sizing">
+    <p class="section-label">Capital Decision</p>
+    <div class="countdown-card">
+      <div class="countdown-num" id="days-left">—</div>
+      <div class="countdown-label">DAYS UNTIL DECISION</div>
+      <div class="countdown-date" id="decision-date">—</div>
+    </div>
+    <div class="info-banner">⚡ These are estimated real profits at your $500 portfolio with 1.5% risk ($7.50/bet). Shadow numbers × 7.5% sizing ratio.</div>
+    <p class="section-label">Estimated Real P&L at $500</p>
+    <div class="summary-bar">
+      <div class="summary-item"><div class="summary-val" id="est-combined">—</div><div class="summary-lbl">Combined</div></div>
+      <div class="summary-item"><div class="summary-val" id="est-resolved">—</div><div class="summary-lbl">Resolved</div></div>
+      <div class="summary-item"><div class="summary-val" id="est-positions">—</div><div class="summary-lbl">Open Pos</div></div>
+    </div>
+    <p class="section-label">Per Wallet Estimate</p>
+    <div id="sizing-wallet-list"></div>
+    <p class="section-label">What If Calculator</p>
+    <div class="bot-card" style="margin-bottom:10px;">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:12px;">Enter any capital amount to see estimated real P&L at 1.5% risk per bet.</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+        <span style="font-size:20px;font-weight:500;color:var(--muted);">$</span>
+        <input type="number" id="calc-capital" value="500" min="100" max="100000" step="100"
+          style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;font-size:18px;font-family:var(--mono);color:var(--text);outline:none;-webkit-appearance:none;"
+          oninput="updateCalculator()">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div class="wallet-stat">
+          <div class="wallet-stat-val" id="calc-bet-size">—</div>
+          <div class="wallet-stat-lbl">Bet Size (1.5%)</div>
+        </div>
+        <div class="wallet-stat">
+          <div class="wallet-stat-val" id="calc-scale">—</div>
+          <div class="wallet-stat-lbl">Scale Factor</div>
+        </div>
+        <div class="wallet-stat">
+          <div class="wallet-stat-val pos" id="calc-combined">—</div>
+          <div class="wallet-stat-lbl">Est. Combined</div>
+        </div>
+        <div class="wallet-stat">
+          <div class="wallet-stat-val pos" id="calc-resolved">—</div>
+          <div class="wallet-stat-lbl">Est. Resolved</div>
+        </div>
+      </div>
+      <div style="margin-top:10px;font-size:11px;color:var(--muted);text-align:center;" id="calc-note">—</div>
+    </div>
+    <p class="section-label">Sizing Parameters</p>
+    <div class="screener-card">
+      <div class="screener-row"><span class="screener-label">Portfolio</span><span class="screener-val" id="sz-capital">—</span></div>
+      <div class="screener-row"><span class="screener-label">Risk per bet</span><span class="screener-val" id="sz-risk">—</span></div>
+      <div class="screener-row"><span class="screener-label">Bet size</span><span class="screener-val" id="sz-bet">—</span></div>
+      <div class="screener-row" style="border-bottom:none;"><span class="screener-label">Scale factor</span><span class="screener-val" id="sz-scale">—</span></div>
+    </div>
+  </div>
+
+  <!-- SCREENER TAB -->
+  <div class="page" id="page-screener">
+    <p class="section-label">🔎 Find a Trader</p>
+    <div class="find-card">
+      <div class="find-row">
+        <input id="find-addr" class="find-input" type="text"
+               placeholder="0x… address or polymarket.com/profile URL"
+               onkeydown="if(event.key==='Enter')findTrader()">
+        <button class="btn-primary" onclick="findTrader()">Look up</button>
+      </div>
+      <div id="find-msg" class="find-msg"></div>
+      <div id="find-result"></div>
+    </div>
+    <p class="section-label">⭐ Tier 2 Passers (Priority)</p>
+    <div id="tier2-list"><div class="empty-state"><div class="empty-icon">⭐</div>Loading…</div></div>
+    <p class="section-label">✓ Tier 1 Only (Shadow with Caution)</p>
+    <div id="tier1-list"><div class="empty-state"><div class="empty-icon">✓</div>Loading…</div></div>
+    <p class="section-label">Verified Passers</p>
+    <div id="screener-list"><div class="empty-state"><div class="empty-icon">🔍</div>Loading…</div></div>
+    <p class="section-label">Network Follow Passers</p>
+    <div id="network-list"><div class="empty-state"><div class="empty-icon">🌐</div>Loading…</div></div>
+    <p class="section-label">Scan History</p>
+    <div id="scan-history-list"><div class="empty-state"><div class="empty-icon">📋</div>Loading history…</div></div>
+
+    <p class="section-label">Watchlist</p>
+    <div style="margin-bottom:10px;">
+      <div style="display:flex;gap:8px;margin-bottom:10px;">
+        <input type="text" id="screener-wl-address" placeholder="0x… wallet address" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:9px 12px;font-size:12px;font-family:var(--mono);color:var(--text);outline:none;">
+        <button onclick="addToWatchlistFromScreener()" style="padding:9px 14px;background:var(--blue-dim);border:1px solid var(--blue);border-radius:var(--radius-sm);color:var(--blue);font-size:12px;font-weight:600;font-family:var(--sans);cursor:pointer;white-space:nowrap;">+ Add</button>
+      </div>
+      <input type="text" id="screener-wl-label" placeholder="Label (optional)" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:9px 12px;font-size:12px;font-family:var(--sans);color:var(--text);outline:none;margin-bottom:6px;">
+      <div id="screener-wl-msg" style="font-size:11px;color:var(--muted);"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;">
+      <button class="btn btn-shadow" onclick="exportWatchlist()">⬇ Export CSV</button>
+      <label class="btn btn-shadow" style="text-align:center;cursor:pointer;line-height:2;">⬆ Import
+        <input type="file" accept=".csv,.json" onchange="importWatchlist(this)" hidden>
+      </label>
+    </div>
+    <div id="watchlist-cards"><div class="empty-state" style="padding:24px;"><div class="empty-icon" style="font-size:24px;">👁</div>No wallets watching yet</div></div>
+    <p class="section-label">Run Scanner</p>
+    <div id="scanner-status" style="margin-bottom:10px;"></div>
+    <button onclick="runScanner()" id="scan-btn" style="width:100%;padding:14px;background:var(--green-dim);border:1px solid var(--green);border-radius:var(--radius);color:var(--green);font-size:14px;font-weight:600;font-family:var(--sans);cursor:pointer;letter-spacing:0.3px;-webkit-tap-highlight-color:transparent;">⚡ Run Full Pipeline</button>
+    <button onclick="runNetwork()" id="network-btn" style="width:100%;padding:14px;background:var(--blue-dim);border:1px solid var(--blue);border-radius:var(--radius);color:var(--blue);font-size:14px;font-weight:600;font-family:var(--sans);cursor:pointer;letter-spacing:0.3px;margin-top:10px;-webkit-tap-highlight-color:transparent;">🌐 Run Network Follow</button>
+  </div>
+
+</div>
+
+<!-- Bottom Nav — 4 tabs -->
+<div class="bottom-nav">
+  <button class="nav-item active" id="nav-shadow" onclick="showPage('shadow')"><span class="nav-icon">👥</span>Shadow</button>
+  <button class="nav-item" id="nav-live" onclick="showPage('live')"><span class="nav-icon">📈</span>Live</button>
+  <button class="nav-item" id="nav-sizing" onclick="showPage('sizing')"><span class="nav-icon">💰</span>Sizing</button>
+  <button class="nav-item" id="nav-screener" onclick="showPage('screener')"><span class="nav-icon">🔍</span>Screener</button>
+  <button class="nav-item" id="nav-chart" onclick="showPage('chart')"><span class="nav-icon">📊</span>Chart</button>
+  <button class="nav-item" id="nav-settings" onclick="showPage('settings')"><span class="nav-icon">⚙️</span>Settings</button>
+</div>
+
+<script>
+const AVATARS=['av-blue','av-green','av-yellow','av-red'];
+
+/* ---- Security helpers ---- */
+function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function escapeAttr(s){var r=String(s??'');r=r.split('\\').join('\\\\');r=r.split("'").join("\\'");r=r.split('"').join('&quot;');return r;}
+function shortAddr(a){return a.length>12?`${a.slice(0,6)}…${a.slice(-4)}`:a;}
+function initials(s){const t=(s||'').replace(/^0x/,'').slice(0,2).toUpperCase();return t||'??';}
+function parseAddr(input){const m=(input||'').match(/0x[0-9a-fA-F]{40}/);return m?m[0].toLowerCase():null;}
+
+/* ---- Clipboard with fallback ---- */
+async function copyAddr(addr,btn){
+  let ok=false;
+  try{if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(addr);ok=true;}}catch(e){}
+  if(!ok){const ta=document.createElement('textarea');ta.value=addr;ta.style.position='fixed';ta.style.opacity='0';
+    document.body.appendChild(ta);ta.select();try{ok=document.execCommand('copy');}catch(e){}document.body.removeChild(ta);}
+  if(ok){const old=btn.textContent;btn.textContent='Copied';btn.classList.add('copied');
+    setTimeout(()=>{btn.textContent=old;btn.classList.remove('copied');},1200);}
+}
+
+/* ---- Trader card component ---- */
+function traderCard(t,opts={}){
+  const o=Object.assign({preview:false,buttons:['watch','shadow','live'],idx:0},opts);
+  const av=AVATARS[o.idx%AVATARS.length];
+  const label=t.label||shortAddr(t.address);
+  const nameArg=escapeAttr(t.label||t.address.slice(0,8));
+  const stats=[
+    {v:t.resolved,lbl:'Resolved',c:true},
+    {v:t.unrealized,lbl:'Unrealized',c:true},
+    {v:t.positions,lbl:'Open positions',raw:true}
+  ];
+  const statHtml=stats.map(s=>`<div class="tc-stat"><div class="tc-stat-val ${s.c?colorClass(s.v):''}">${s.raw?s.v:fmt(s.v)}</div><div class="tc-stat-lbl">${s.lbl}</div></div>`).join('');
+  const btnMap={
+    watch:`<button class="btn btn-watch" onclick="addWatchFromScan('${escapeAttr(t.address)}','${nameArg}',this)">+ Watch</button>`,
+    shadow:`<button class="btn btn-shadow" onclick="promoteWallet('${escapeAttr(t.address)}','${nameArg}','shadow',this)">+ Shadow</button>`,
+    live:`<button class="btn btn-live" onclick="promoteWallet('${escapeAttr(t.address)}','${nameArg}','live',this)">→ Live</button>`,
+  };
+  return `<div class="trader-card ${o.preview?'is-preview':''}">
+    <div class="tc-top">
+      <div class="tc-left">
+        <div class="tc-avatar ${av}">${escapeHtml(initials(label))}</div>
+        <div style="min-width:0">
+          <div class="tc-name">${escapeHtml(label)}</div>
+          <div class="tc-addr"><code>${shortAddr(t.address)}</code><button class="copy-btn" onclick="copyAddr('${escapeAttr(t.address)}',this)">Copy</button></div>
+        </div>
+      </div>
+      <div class="tc-combined ${colorClass(t.combined)}">${fmt(t.combined)}</div>
+    </div>
+    <div class="tc-grid">${statHtml}</div>
+    <div class="tc-actions">${o.buttons.map(b=>btnMap[b]).join('')}</div>
+    <a class="tc-link" href="https://polymarket.com/profile/${escapeAttr(t.address)}" target="_blank" rel="noopener">View on Polymarket ↗</a>
+  </div>`;
+}
+
+/* ---- Find a Trader ---- */
+function _findEmpty(){return `<div class="preview-empty"><span class="icon">🔍</span>Paste a wallet address or Polymarket profile URL to look up any trader.</div>`;}
+function _findError(msg){return `<div class="preview-error">${escapeHtml(msg)}</div>`;}
+
+async function findTrader(){
+  const raw=document.getElementById('find-addr').value.trim();
+  const msg=document.getElementById('find-msg');
+  const out=document.getElementById('find-result');
+  if(!raw){msg.textContent='';out.innerHTML=_findEmpty();return;}
+  const addr=parseAddr(raw);
+  if(!addr){msg.textContent='';out.innerHTML=_findError("Doesn't look like a wallet address. Paste a full 0x… address or polymarket.com/profile/… URL.");return;}
+  msg.style.color='var(--muted)';msg.textContent='Looking up profile…';
+  try{
+    const r=await fetch('/api/trader/'+addr);
+    const d=await r.json();
+    if(!d.ok){msg.textContent='';out.innerHTML=_findError(d.error||'No Polymarket profile found for that address.');return;}
+    msg.textContent='';
+    out.innerHTML=traderCard(d,{preview:true});
+  }catch(e){msg.textContent='';out.innerHTML=_findError('Could not reach the server — try again.');}
+}
+
+/* ---- Watchlist import/export ---- */
+function exportWatchlist(){window.location='/api/watchlist/export?format=csv';}
+function importWatchlist(input){
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=async()=>{
+    let body;
+    if(file.name.endsWith('.json')){try{body={wallets:JSON.parse(reader.result)};}catch(e){alert('Could not read that JSON file.');return;}}
+    else{body={csv:reader.result};}
+    try{
+      const r=await fetch('/api/watchlist/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      const d=await r.json();
+      if(d.ok)alert(`Imported ${d.added} · ${d.skipped} dupes skipped · ${d.invalid} invalid`);
+      else alert(d.error||'Import failed');
+    }catch(e){alert('Import failed — could not reach server.');}
+    loadWatchlist();input.value='';
+  };
+  reader.readAsText(file);
+}
+
+/* ---- Screener tab watchlist add (uses renamed IDs) ---- */
+async function addToWatchlistFromScreener(){
+  const address=(document.getElementById('screener-wl-address').value||'').trim();
+  const label=(document.getElementById('screener-wl-label').value||'').trim()||address.slice(0,10);
+  const msg=document.getElementById('screener-wl-msg');
+  if(!/^0x[0-9a-fA-F]{40}$/.test(address)){
+    msg.style.color='var(--red)';msg.textContent='⚠️ Invalid address';return;
+  }
+  msg.style.color='var(--muted)';msg.textContent='Adding…';
+  try{
+    const r=await fetch('/api/watchlist',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'add',address,label})});
+    const d=await r.json();
+    if(d.ok){msg.style.color='var(--green)';msg.textContent='✓ Added';
+      document.getElementById('screener-wl-address').value='';
+      document.getElementById('screener-wl-label').value='';
+      loadWatchlist();}
+    else{msg.style.color='var(--red)';msg.textContent='⚠️ '+(d.error||'Failed');}
+  }catch(e){msg.style.color='var(--red)';msg.textContent='⚠️ Error';}
+}
+const INITIALS=n=>n.split(/[_\s]/).map(w=>w[0]||'').join('').toUpperCase().slice(0,2);
+function fmt(v){if(v===0)return'$0';const abs=Math.abs(v);const s=abs>=1000?`$${(abs/1000).toFixed(1)}K`:`$${abs.toFixed(0)}`;return v<0?`-${s}`:`+${s}`;}
+function colorClass(v){if(v>0)return'pos';if(v<0)return'neg';return'neu';}
+function timeAgo(ts){const d=Math.floor((Date.now()/1000)-ts);if(d<60)return`${d}s ago`;if(d<3600)return`${Math.floor(d/60)}m ago`;if(d<86400)return`${Math.floor(d/3600)}h ago`;return`${Math.floor(d/86400)}d ago`;}
+function showPage(name){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));document.getElementById(`page-${name}`).classList.add('active');document.getElementById(`nav-${name}`).classList.add('active');if(name==='chart'){loadChart();}if(name==='settings'){loadConfig();}if(name==='screener'){loadScanHistory();loadWatchlist();}}
+
+function renderWallets(wallets){
+  const el=document.getElementById('wallet-list');
+  if(!wallets||wallets.length===0){el.innerHTML='<div class="empty-state"><div class="empty-icon">👻</div>No shadow wallets</div>';return;}
+  let tc=0,tr=0,tp=0;
+  wallets.forEach(w=>{if(w.active){tc+=w.combined;tr+=w.resolved;tp+=w.open_positions;}});
+  shadowTotals = {combined: tc, resolved: tr, unrealized: 0};
+  wallets.forEach(w=>{if(w.active) shadowTotals.unrealized += w.unrealized;});
+  updateCalculator();
+  document.getElementById('sum-combined').innerHTML=`<span class="${colorClass(tc)}">${fmt(tc)}</span>`;
+  document.getElementById('sum-resolved').innerHTML=`<span class="${colorClass(tr)}">${fmt(tr)}</span>`;
+  document.getElementById('sum-positions').textContent=tp;
+  el.innerHTML=wallets.map((w,i)=>{
+    const av=AVATARS[i%AVATARS.length];const init=INITIALS(w.name);
+    if(!w.active)return`<div class="wallet-card inactive"><div class="wallet-top"><div class="wallet-left"><div class="wallet-avatar ${av}">${init}</div><div><div class="wallet-name">${w.name}</div><div class="wallet-status">watching — no activity yet</div></div></div><div class="wallet-combined neu">—</div></div></div>`;
+    return`<div class="wallet-card" onclick="openPositions('${w.name}')" style="cursor:pointer;"><div class="wallet-top"><div class="wallet-left"><div class="wallet-avatar ${av}">${init}</div><div><div class="wallet-name">${w.name}</div><div class="wallet-status">${w.open_positions} open positions · tap for detail</div></div></div><div class="wallet-combined ${colorClass(w.combined)}">${fmt(w.combined)}</div></div><div class="wallet-grid"><div class="wallet-stat"><div class="wallet-stat-val ${colorClass(w.resolved)}">${fmt(w.resolved)}</div><div class="wallet-stat-lbl">Resolved</div></div><div class="wallet-stat"><div class="wallet-stat-val ${colorClass(w.unrealized)}">${fmt(w.unrealized)}</div><div class="wallet-stat-lbl">Unrealized</div></div><div class="wallet-stat"><div class="wallet-stat-val">${w.open_positions}</div><div class="wallet-stat-lbl">Positions</div></div></div></div>`;
+  }).join('');
+}
+
+function renderLive(live){
+  const paper=live.paper_mode;
+  document.getElementById('live-banner-area').innerHTML=paper
+    ?'<div class="info-banner">📋 Paper trading mode — no real orders placed yet. Live P&L will populate automatically after June 27th when you go live.</div>'
+    :'<div class="live-banner">🟢 Live trading active — real P&L shown below.</div>';
+  document.getElementById('live-combined').innerHTML=`<span class="${colorClass(live.combined)}">${fmt(live.combined)}</span>`;
+  document.getElementById('live-realized').innerHTML=`<span class="${colorClass(live.realized)}">${fmt(live.realized)}</span>`;
+  document.getElementById('live-unrealized').innerHTML=`<span class="${colorClass(live.unrealized)}">${fmt(live.unrealized)}</span>`;
+  document.getElementById('live-capital').textContent=`$${live.starting_capital?.toFixed(0)||'—'}`;
+  document.getElementById('live-total').innerHTML=`<span class="${colorClass((live.total_value||0)-live.starting_capital)}">${live.total_value?'$'+live.total_value.toFixed(0):'—'}</span>`;
+  document.getElementById('live-return').innerHTML=`<span class="${colorClass(live.return_pct||0)}">${live.return_pct!=null?(live.return_pct>0?'+':'')+live.return_pct.toFixed(2)+'%':'—'}</span>`;
+  document.getElementById('live-today').innerHTML=`<span class="${colorClass(live.today_pnl||0)}">${fmt(live.today_pnl||0)}</span>`;
+  document.getElementById('live-7d').innerHTML=`<span class="${colorClass(live.rolling_7d_pnl||0)}">${fmt(live.rolling_7d_pnl||0)}</span>`;
+  document.getElementById('live-wr').textContent=live.realized_win_rate?`${(live.realized_win_rate*100).toFixed(0)}%`:'—';
+  document.getElementById('live-wl').textContent=`${live.realized_wins||0} W / ${live.realized_losses||0} L`;
+  document.getElementById('live-dd').innerHTML=`<span class="${(live.current_drawdown_pct||0)>10?'neg':'neu'}">${live.current_drawdown_pct!=null?live.current_drawdown_pct.toFixed(1)+'%':'—'}</span>`;
+}
+
+function renderSizing(sz){
+  document.getElementById('days-left').textContent=sz.days_to_decision??'—';
+  document.getElementById('decision-date').textContent=sz.decision_date||'—';
+  document.getElementById('est-combined').innerHTML=`<span class="${colorClass(sz.estimated_combined||0)}">${fmt(sz.estimated_combined||0)}</span>`;
+  document.getElementById('est-resolved').innerHTML=`<span class="${colorClass(sz.estimated_resolved||0)}">${fmt(sz.estimated_resolved||0)}</span>`;
+  let tp=0;(sz.wallets||[]).forEach(w=>tp+=w.open_positions||0);
+  document.getElementById('est-positions').textContent=tp;
+  document.getElementById('sz-capital').textContent=`$${sz.capital||500}`;
+  document.getElementById('sz-risk').textContent=`${sz.risk_pct||1.5}%`;
+  document.getElementById('sz-bet').textContent=`$${sz.bet_size||7.50}`;
+  document.getElementById('sz-scale').textContent=sz.scale?`${(sz.scale*100).toFixed(1)}% of shadow`:'—';
+  const wl=document.getElementById('sizing-wallet-list');
+  if(sz.wallets&&sz.wallets.length>0){
+    wl.innerHTML=sz.wallets.map((w,i)=>{
+      const av=AVATARS[i%AVATARS.length];const init=INITIALS(w.name);
+      return`<div class="wallet-card"><div class="wallet-top"><div class="wallet-left"><div class="wallet-avatar ${av}">${init}</div><div><div class="wallet-name">${w.name}</div><div class="wallet-status">at $${sz.bet_size}/bet sizing</div></div></div><div class="wallet-combined ${colorClass(w.combined)}">${fmt(w.combined)}</div></div><div class="wallet-grid"><div class="wallet-stat"><div class="wallet-stat-val ${colorClass(w.resolved)}">${fmt(w.resolved)}</div><div class="wallet-stat-lbl">Resolved</div></div><div class="wallet-stat"><div class="wallet-stat-val ${colorClass(w.unrealized)}">${fmt(w.unrealized)}</div><div class="wallet-stat-lbl">Unrealized</div></div><div class="wallet-stat"><div class="wallet-stat-val">${w.open_positions}</div><div class="wallet-stat-lbl">Positions</div></div></div></div>`;
+    }).join('');
+  }
+}
+
+function renderBot(bot){
+  const el=document.getElementById('bot-card');
+  document.getElementById('status-dot').className=`status-dot ${bot.running?'online':'offline'}`;
+  document.getElementById('bot-name').textContent=`${bot.bot_name||'Atlas'} [PAPER]`;
+  el.innerHTML=`<div class="bot-row"><div class="bot-name">${bot.bot_name||'Atlas'}<span class="bot-badge ${bot.running?'running':'stopped'}">${bot.running?'● RUNNING':'● STOPPED'}</span><span class="bot-badge paper">PAPER</span></div></div><div class="bot-log">${bot.last_log||'No recent logs'}</div>`;
+}
+
+function renderScreener(screener){
+  const el=document.getElementById('screener-card');
+  const v=screener.verified||{};const n=screener.network||{};
+  el.innerHTML=`<div class="screener-row"><span class="screener-label">Verified passers</span><div style="text-align:right;"><div class="screener-val">${v.count??'—'}</div>${v.last_updated?`<div class="screener-time">${timeAgo(v.last_updated)}</div>`:''}</div></div><div class="screener-row"><span class="screener-label">Network passers</span><div style="text-align:right;"><div class="screener-val">${n.count??'—'}</div>${n.last_updated?`<div class="screener-time">${timeAgo(n.last_updated)}</div>`:''}</div></div><div class="screener-row" style="border-bottom:none;"><span class="screener-label">Last cron</span><span class="screener-val screener-time" style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${screener.cron_last_line||'—'}</span></div>`;
+  const sl=document.getElementById('screener-list');const nl=document.getElementById('network-list');
+  const t2l=document.getElementById('tier2-list');const t1l=document.getElementById('tier1-list');
+
+  // Tier 2 passers
+  if(v.tier2&&v.tier2.length>0){
+    t2l.innerHTML=v.tier2.map(w=>`
+      <div class="position-item" style="flex-direction:column;align-items:flex-start;gap:8px;border-color:#00e5a030;">
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
+          <a href="https://polymarket.com/profile/${w.address}" target="_blank" style="text-decoration:none;flex:1;">
+            <div style="font-size:12px;font-weight:500;color:var(--blue);">${(w.address||'').slice(0,10)}…${(w.address||'').slice(-6)}</div>
+            <div style="font-size:11px;color:var(--muted);">all-time: <span class="${(w.all_time_profit||0)>0?'pos':'neg'}">$${((w.all_time_profit||0)).toFixed(0)}</span> · ${w.predictions||0} trades</div>
+          </a>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+            <span style="font-size:10px;background:var(--green-dim);color:var(--green);padding:2px 8px;border-radius:20px;">⭐ Tier 2</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;width:100%;">
+          <button onclick="addWatchFromScan('${w.address}','${(w.address||'').slice(0,8)}',this)" style="flex:1;padding:6px;background:var(--blue-dim);border:1px solid var(--blue);border-radius:var(--radius-sm);color:var(--blue);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--sans);">+ Watch</button>
+          <button onclick="promoteWallet('${w.address}','${(w.address||'').slice(0,8)}','shadow',this)" style="flex:1;padding:6px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--sans);">+ Shadow</button>
+          <button onclick="promoteWallet('${w.address}','${(w.address||'').slice(0,8)}','live',this)" style="flex:1;padding:6px;background:var(--green-dim);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--green);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--sans);">→ Live</button>
+        </div>
+      </div>`).join('');
+  } else {
+    t2l.innerHTML='<div class="empty-state"><div class="empty-icon">⭐</div>No Tier 2 passers yet — these are the best wallets to shadow.</div>';
+  }
+
+  // Tier 1 only
+  if(v.tier1_only&&v.tier1_only.length>0){
+    t1l.innerHTML=v.tier1_only.map(w=>`
+      <div class="position-item" style="flex-direction:column;align-items:flex-start;gap:8px;border-color:#ffd16630;">
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
+          <a href="https://polymarket.com/profile/${w.address}" target="_blank" style="text-decoration:none;flex:1;">
+            <div style="font-size:12px;font-weight:500;color:var(--blue);">${(w.address||'').slice(0,10)}…${(w.address||'').slice(-6)}</div>
+            <div style="font-size:11px;color:var(--muted);">all-time: <span class="${(w.all_time_profit||0)>0?'pos':'neg'}">$${((w.all_time_profit||0)).toFixed(0)}</span> · ${w.predictions||0} trades</div>
+          </a>
+          <span style="font-size:10px;background:var(--yellow-dim);color:var(--yellow);padding:2px 8px;border-radius:20px;">⚠️ Caution</span>
+        </div>
+        <div style="display:flex;gap:6px;width:100%;">
+          <button onclick="addWatchFromScan('${w.address}','${(w.address||'').slice(0,8)}',this)" style="flex:1;padding:6px;background:var(--blue-dim);border:1px solid var(--blue);border-radius:var(--radius-sm);color:var(--blue);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--sans);">+ Watch</button>
+          <button onclick="promoteWallet('${w.address}','${(w.address||'').slice(0,8)}','shadow',this)" style="flex:1;padding:6px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--sans);">+ Shadow</button>
+          <button onclick="promoteWallet('${w.address}','${(w.address||'').slice(0,8)}','live',this)" style="flex:1;padding:6px;background:var(--green-dim);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--green);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--sans);">→ Live</button>
+        </div>
+      </div>`).join('');
+  } else {
+    t1l.innerHTML='<div class="empty-state"><div class="empty-icon">✓</div>No Tier 1 only passers.</div>';
+  }
+  if(v.wallets&&v.wallets.length>0){sl.innerHTML=v.wallets.map(w=>`<a href="https://polymarket.com/profile/${w.address}" target="_blank" style="text-decoration:none;"><div class="position-item"><div><div class="position-market" style="color:var(--blue)">${(w.address||'').slice(0,10)}…${(w.address||'').slice(-6)}</div><div class="position-meta">WR ${w.win_rate?(w.win_rate*100).toFixed(0)+'%':'—'} · ${w.closed||0} closed · tap to view</div></div><div class="position-pnl ${colorClass(w.pnl||0)}">${fmt(w.pnl||0)}</div></div></a>`).join('');}
+  else{sl.innerHTML='<div class="empty-state"><div class="empty-icon">🔍</div>No verified passers yet. Run the scanner below.</div>';}
+  if(n.wallets&&n.wallets.length>0){nl.innerHTML=n.wallets.map(w=>`<a href="https://polymarket.com/profile/${w.address}" target="_blank" style="text-decoration:none;"><div class="position-item"><div><div class="position-market" style="color:var(--blue)">${(w.address||'').slice(0,10)}…${(w.address||'').slice(-6)}</div><div class="position-meta">WR ${w.win_rate?(w.win_rate*100).toFixed(0)+'%':'—'} · ${w.shared_markets||0} shared mkts · tap to view</div></div><div class="position-pnl ${colorClass(w.pnl||0)}">${fmt(w.pnl||0)}</div></div></a>`).join('');}
+  else{nl.innerHTML='<div class="empty-state"><div class="empty-icon">🌐</div>No network passers yet. Run the scanner below.</div>';}
+}
+
+function closePositions(){
+  document.getElementById('page-positions').style.display='none';
+}
+async function openPositions(trader){
+  const page=document.getElementById('page-positions');
+  page.style.display='block';
+  document.getElementById('pos-trader-name').textContent=trader;
+  document.getElementById('pos-counts').textContent='Loading…';
+  document.getElementById('pos-open-list').innerHTML='<div class="empty-state"><div class="empty-icon">⏳</div>Loading positions…</div>';
+  document.getElementById('pos-closed-list').innerHTML='<div class="empty-state"><div class="empty-icon">⏳</div>Loading…</div>';
+  try{
+    const r=await fetch(`/api/positions/${encodeURIComponent(trader)}`);
+    const d=await r.json();
+    document.getElementById('pos-counts').textContent=`${d.copied_count||0} copied · ${d.shadowing_count||0} shadowing · ${d.closed_copied_count||0} closed`;
+    const ol=document.getElementById('pos-open-list');
+    const cl=document.getElementById('pos-closed-list');
+    let html='';
+    if(d.copied&&d.copied.length>0){
+      html+=`<div style="font-size:11px;font-weight:500;letter-spacing:0.8px;text-transform:uppercase;color:var(--green);margin:0 0 8px 4px;">✓ Copied by Atlas (${d.copied_count})</div>`;
+      html+=d.copied.map(p=>`<a href="https://polymarket.com/event/${p.slug}" target="_blank" style="text-decoration:none;"><div class="position-item" style="flex-direction:column;align-items:flex-start;gap:8px;border-color:#00e5a030;"><div style="font-size:13px;font-weight:500;color:var(--text);line-height:1.4;">${p.question}</div><div style="display:flex;align-items:center;justify-content:space-between;width:100%;"><div><span style="font-size:11px;background:var(--green-dim);color:var(--green);padding:2px 8px;border-radius:20px;font-weight:500;">${p.outcome}</span><span style="font-size:11px;color:var(--muted);margin-left:8px;">@ $${p.their_price?.toFixed(2)||'—'}</span></div><div style="font-family:var(--mono);font-size:12px;color:var(--green);">$${p.our_would_be_size?.toFixed(0)||'—'} bet</div></div></div></a>`).join('');
+    } else {
+      html+=`<div style="font-size:11px;font-weight:500;letter-spacing:0.8px;text-transform:uppercase;color:var(--green);margin:0 0 8px 4px;">✓ Copied by Atlas (0)</div><div class="empty-state" style="padding:20px;"><div class="empty-icon" style="font-size:20px;">📭</div>No copied positions open</div>`;
+    }
+    if(d.shadowing&&d.shadowing.length>0){
+      html+=`<div style="font-size:11px;font-weight:500;letter-spacing:0.8px;text-transform:uppercase;color:var(--muted);margin:16px 0 8px 4px;">👁 Shadowing Only (${d.shadowing_count})</div>`;
+      html+=d.shadowing.map(p=>`<a href="https://polymarket.com/event/${p.slug}" target="_blank" style="text-decoration:none;"><div class="position-item" style="flex-direction:column;align-items:flex-start;gap:8px;opacity:0.7;"><div style="font-size:13px;font-weight:500;color:var(--text);line-height:1.4;">${p.question}</div><div style="display:flex;align-items:center;justify-content:space-between;width:100%;"><div><span style="font-size:11px;background:var(--surface2);color:var(--muted);padding:2px 8px;border-radius:20px;">${p.outcome}</span><span style="font-size:11px;color:var(--muted);margin-left:8px;">@ $${p.their_price?.toFixed(2)||'—'}</span></div><div style="font-family:var(--mono);font-size:10px;color:var(--muted);">${p.decision||'—'}</div></div></div></a>`).join('');
+    }
+    ol.innerHTML=html;
+    let clHtml='';
+    if(d.closed_copied&&d.closed_copied.length>0){
+      clHtml+=`<div style="font-size:11px;font-weight:500;letter-spacing:0.8px;text-transform:uppercase;color:var(--green);margin:0 0 8px 4px;">✓ Closed Copied (${d.closed_copied_count})</div>`;
+      clHtml+=d.closed_copied.map(p=>{const pnl=p.resolution_pnl;const pnlStr=pnl!=null?`<span class="${pnl>0?'pos':'neg'}">${fmt(pnl)}</span>`:'<span style="color:var(--muted)">—</span>';return`<a href="https://polymarket.com/event/${p.slug}" target="_blank" style="text-decoration:none;"><div class="position-item" style="flex-direction:column;align-items:flex-start;gap:8px;border-color:#00e5a020;"><div style="font-size:13px;font-weight:500;color:var(--muted);line-height:1.4;">${p.question||'Unknown market'}</div><div style="display:flex;align-items:center;justify-content:space-between;width:100%;"><div><span style="font-size:11px;background:var(--green-dim);color:var(--green);padding:2px 8px;border-radius:20px;">${p.outcome||''}</span><span style="font-size:11px;color:var(--muted);margin-left:8px;">@ $${p.their_price?.toFixed(2)||'—'}</span></div><div style="font-family:var(--mono);font-size:13px;font-weight:500;">${pnlStr}</div></div></div></a>`}).join('');
+    } else {
+      clHtml+=`<div style="font-size:11px;font-weight:500;letter-spacing:0.8px;text-transform:uppercase;color:var(--green);margin:0 0 8px 4px;">✓ Closed Copied (0)</div><div class="empty-state" style="padding:20px;"><div class="empty-icon" style="font-size:20px;">📭</div>No closed copied positions yet</div>`;
+    }
+    if(d.closed_shadow&&d.closed_shadow.length>0){
+      clHtml+=`<div style="font-size:11px;font-weight:500;letter-spacing:0.8px;text-transform:uppercase;color:var(--muted);margin:16px 0 8px 4px;">👁 Closed Shadowing (${d.closed_shadow_count})</div>`;
+      clHtml+=d.closed_shadow.map(p=>{const pnl=p.resolution_pnl;const pnlStr=pnl!=null?`<span class="${pnl>0?'pos':'neg'}">${fmt(pnl)}</span>`:'<span style="color:var(--muted)">—</span>';return`<a href="https://polymarket.com/event/${p.slug}" target="_blank" style="text-decoration:none;"><div class="position-item" style="flex-direction:column;align-items:flex-start;gap:8px;opacity:0.6;"><div style="font-size:13px;font-weight:500;color:var(--muted);line-height:1.4;">${p.question||'Unknown market'}</div><div style="display:flex;align-items:center;justify-content:space-between;width:100%;"><span style="font-size:11px;color:var(--muted);">${p.outcome||''} @ $${p.their_price?.toFixed(2)||'—'}</span><div style="font-family:var(--mono);font-size:13px;font-weight:500;">${pnlStr}</div></div></div></a>`}).join('');
+    }
+    cl.innerHTML=clHtml;
+  }catch(e){
+    document.getElementById('pos-open-list').innerHTML='<div class="empty-state"><div class="empty-icon">⚠️</div>Failed to load positions</div>';
+  }
+}
+// Notification settings
+async function loadConfig(){
+  try{
+    const r=await fetch('/api/config');
+    const d=await r.json();
+    document.getElementById('cfg-bot-name').value=d.bot_name||'Atlas';
+    document.getElementById('cfg-bot-dir').value=d.bot_dir||'/opt/polymarket-bot';
+    document.getElementById('cfg-domain').value=d.domain||'';
+    document.getElementById('cfg-port').value=d.port||443;
+  }catch(e){console.error('config load failed',e);}
+}
+
+async function saveConfig(){
+  const msg=document.getElementById('cfg-msg');
+  msg.style.color='var(--muted)';
+  msg.textContent='Saving…';
+  try{
+    const r=await fetch('/api/config',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        bot_name:document.getElementById('cfg-bot-name').value,
+        bot_dir:document.getElementById('cfg-bot-dir').value,
+        domain:document.getElementById('cfg-domain').value,
+        port:parseInt(document.getElementById('cfg-port').value)||443,
+      })
+    });
+    const d=await r.json();
+    if(d.ok){
+      msg.style.color='var(--green)';
+      msg.textContent='✓ Saved! Restarting DashView…';
+    } else {
+      msg.style.color='var(--red)';
+      msg.textContent='⚠️ '+(d.error||'Failed');
+    }
+  }catch(e){
+    msg.style.color='var(--muted)';
+    msg.textContent='Restarting… reconnect in 5 seconds';
+  }
+}
+
+function toggleTheme(){
+  const dark=document.getElementById('dark-mode-toggle').checked;
+  if(dark){document.body.classList.remove('light-mode');localStorage.setItem('dashview_theme','dark');}
+  else{document.body.classList.add('light-mode');localStorage.setItem('dashview_theme','light');}
+}
+function loadTheme(){
+  const theme=localStorage.getItem('dashview_theme')||'dark';
+  if(theme==='light'){
+    document.body.classList.add('light-mode');
+    const t=document.getElementById('dark-mode-toggle');
+    if(t) t.checked=false;
+  }
+}
+function saveNotifSettings(){
+  const settings = {
+    big_win: document.getElementById('notif-big-win').checked,
+    big_loss: document.getElementById('notif-big-loss').checked,
+    copied: document.getElementById('notif-copied').checked,
+    new_trade: document.getElementById('notif-new-trade').checked,
+    bot_offline: document.getElementById('notif-bot-offline').checked,
+    live_trade: document.getElementById('notif-live-trade').checked,
+  };
+  localStorage.setItem('dashview_notif', JSON.stringify(settings));
+}
+
+function loadNotifSettings(){
+  try {
+    const s = JSON.parse(localStorage.getItem('dashview_notif') || '{}');
+    if(s.big_win !== undefined) document.getElementById('notif-big-win').checked = s.big_win;
+    if(s.big_loss !== undefined) document.getElementById('notif-big-loss').checked = s.big_loss;
+    if(s.copied !== undefined) document.getElementById('notif-copied').checked = s.copied;
+    if(s.new_trade !== undefined) document.getElementById('notif-new-trade').checked = s.new_trade;
+    if(s.bot_offline !== undefined) document.getElementById('notif-bot-offline').checked = s.bot_offline;
+    if(s.live_trade !== undefined) document.getElementById('notif-live-trade').checked = s.live_trade;
+  } catch(e){}
+}
+
+async function requestNotificationPermission(){
+  const btn = document.getElementById('notif-permission-btn');
+  const status = document.getElementById('notif-status');
+  if(!('Notification' in window)){
+    status.textContent = '⚠️ Notifications not supported on this browser';
+    return;
+  }
+  const perm = await Notification.requestPermission();
+  if(perm === 'granted'){
+    btn.textContent = '✅ Notifications Enabled';
+    btn.style.background = 'var(--green-dim)';
+    btn.style.borderColor = 'var(--green)';
+    btn.style.color = 'var(--green)';
+    status.textContent = 'You will receive alerts when events occur';
+    new Notification('DashView', {body: 'Notifications are now enabled! 🎯', icon: '/icon.png'});
+  } else {
+    status.textContent = '⚠️ Permission denied — enable in iPhone Settings > Safari';
+  }
+}
+
+function sendNotification(title, body){
+  if(Notification.permission === 'granted'){
+    new Notification(title, {body, icon: '/icon.png'});
+  }
+}
+
+function getNotifSettings(){
+  try { return JSON.parse(localStorage.getItem('dashview_notif') || '{}'); } catch(e){ return {}; }
+}
+
+let lastEventTime = Math.floor(Date.now()/1000) - 300; // last 5 min on load
+let lastBotStatus = true;
+
+async function pollEvents(){
+  try {
+    const s = getNotifSettings();
+    const r = await fetch(`/api/events?since=${lastEventTime}`);
+    const data = await r.json();
+    lastEventTime = data.server_time || lastEventTime;
+
+    for(const e of (data.events || [])){
+      if(e.type === 'big_win' && s.big_win !== false){
+        sendNotification('🟢 Big Win — ' + e.trader, `${e.question}\n+$${e.pnl?.toFixed(0)}`);
+      } else if(e.type === 'big_loss' && s.big_loss !== false){
+        sendNotification('🔴 Big Loss — ' + e.trader, `${e.question}\n-$${Math.abs(e.pnl||0).toFixed(0)}`);
+      } else if(e.type === 'copied' && s.copied){
+        sendNotification('⚡ Trade Copied — ' + e.trader, `${e.outcome} @ $${e.price?.toFixed(2)}\n${e.question}`);
+      } else if(e.type === 'bot_status'){
+        if(!e.running && lastBotStatus && s.bot_offline !== false){
+          sendNotification('🔴 Atlas Offline', 'The copy bot has stopped running');
+        }
+        lastBotStatus = e.running;
+      } else if(e.type === 'live_status' && s.live_trade !== false && e.pnl !== 0){
+        sendNotification('📈 Live Trade Update', `W:${e.wins} L:${e.losses} P&L: $${e.pnl?.toFixed(0)}`);
+      }
+    }
+  } catch(e){}
+}
+
+// Update notification button state on load
+function updateNotifButton(){
+  if(!('Notification' in window)) return;
+  const btn = document.getElementById('notif-permission-btn');
+  const status = document.getElementById('notif-status');
+  if(Notification.permission === 'granted'){
+    btn.textContent = '✅ Notifications Enabled';
+    btn.style.background = 'var(--green-dim)';
+    btn.style.borderColor = 'var(--green)';
+    btn.style.color = 'var(--green)';
+    status.textContent = 'Receiving alerts';
+  } else if(Notification.permission === 'denied'){
+    status.textContent = '⚠️ Blocked — enable in iPhone Settings > Safari > Notifications';
+  }
+}
+
+// What If Calculator
+let shadowTotals = {combined: 0, resolved: 0, unrealized: 0};
+
+function updateCalculator(){
+  const capital = parseFloat(document.getElementById('calc-capital').value) || 500;
+  const betSize = capital * 0.015;
+  const scale = betSize / 100.0;
+  const estCombined = shadowTotals.combined * scale;
+  const estResolved = shadowTotals.resolved * scale;
+
+  document.getElementById('calc-bet-size').textContent = '$' + betSize.toFixed(2);
+  document.getElementById('calc-scale').textContent = (scale * 100).toFixed(1) + '%';
+  document.getElementById('calc-combined').textContent = fmt(estCombined);
+  document.getElementById('calc-combined').className = 'wallet-stat-val ' + colorClass(estCombined);
+  document.getElementById('calc-resolved').textContent = fmt(estResolved);
+  document.getElementById('calc-resolved').className = 'wallet-stat-val ' + colorClass(estResolved);
+
+  const needed = Math.ceil(20 / 0.015);
+  if(capital < needed){
+    document.getElementById('calc-note').textContent = `⚠️ Need $${needed}+ to copy $20 median traders meaningfully`;
+  } else {
+    document.getElementById('calc-note').textContent = `✅ At $${capital.toFixed(0)} you can copy $${betSize.toFixed(0)}/bet trades`;
+  }
+}
+
+// P&L Chart
+let chartData = [];
+let chartCanvas = null;
+
+async function loadSimulation(){
+  try{
+    const simCap=document.getElementById('sim-capital')?.value||500;
+    const simRisk=document.getElementById('sim-risk')?.value||1.5;
+    const r=await fetch(`/api/simulation?capital=${simCap}&risk=${simRisk}`);
+    const d=await r.json();
+    if(d.error){
+      document.getElementById('sim-banner').textContent='⚠️ '+d.error;
+      return;
+    }
+    document.getElementById('sim-banner').innerHTML=`ℹ️ At $${d.capital} with $${d.bet_size}/bet (1.5% risk) — max ${d.max_positions} simultaneous positions`;
+    document.getElementById('sim-placed').textContent=d.placed||0;
+    document.getElementById('sim-skipped').textContent=d.skipped||0;
+    document.getElementById('sim-final').innerHTML=`<span class="${(d.final_capital||0)>d.capital?'pos':'neg'}">$${(d.final_capital||0).toFixed(0)}</span>`;
+    document.getElementById('sim-wl').innerHTML=`<span class="pos">${d.wins||0}W</span> / <span class="neg">${d.losses||0}L</span>`;
+    document.getElementById('sim-wr').textContent=(d.win_rate||0)+'%';
+    document.getElementById('sim-pnl').innerHTML=`<span class="${(d.pnl||0)>0?'pos':'neg'}">${fmt(d.pnl||0)}</span>`;
+    document.getElementById('sim-return').innerHTML=`<span class="${(d.return_pct||0)>0?'pos':'neg'}">${d.return_pct||0}%</span>`;
+    document.getElementById('sim-maxpos').textContent=d.max_positions||0;
+
+    // Per trader breakdown
+    const tl=document.getElementById('sim-traders');
+    if(d.traders&&d.traders.length>0){
+      tl.innerHTML=d.traders.map(t=>`
+        <div class="wallet-card" style="margin-bottom:8px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <div style="font-size:14px;font-weight:500;">${t.trader}</div>
+            <div class="wallet-combined ${colorClass(t.pnl||0)}">${fmt(t.pnl||0)}</div>
+          </div>
+          <div class="wallet-grid">
+            <div class="wallet-stat"><div class="wallet-stat-val pos">${t.wins||0}</div><div class="wallet-stat-lbl">Wins</div></div>
+            <div class="wallet-stat"><div class="wallet-stat-val neg">${t.losses||0}</div><div class="wallet-stat-lbl">Losses</div></div>
+            <div class="wallet-stat"><div class="wallet-stat-val">${t.win_rate||0}%</div><div class="wallet-stat-lbl">Win Rate</div></div>
+            <div class="wallet-stat"><div class="wallet-stat-val">${t.placed||0}</div><div class="wallet-stat-lbl">Placed</div></div>
+            <div class="wallet-stat"><div class="wallet-stat-val" style="color:var(--muted)">${t.skipped||0}</div><div class="wallet-stat-lbl">Skipped</div></div>
+          </div>
+        </div>`).join('');
+    }
+  }catch(e){
+    document.getElementById('sim-banner').textContent='⚠️ Failed to load simulation';
+  }
+}
+
+async function loadChart(){
+  try {
+    const r = await fetch('/api/chart');
+    const data = await r.json();
+    chartData = data.points || [];
+    renderChart();
+    renderDailyList();
+    renderSizedChart();
+    renderSizedDailyList();
+    loadSimulation();
+    if(data.copied_wl){
+      const w=data.copied_wl;
+      document.getElementById('wl-wins').textContent=w.wins||0;
+      document.getElementById('wl-losses').textContent=w.losses||0;
+      document.getElementById('wl-wr').textContent=(w.win_rate||0)+'%';
+      document.getElementById('wl-total').textContent=w.total||0;
+      const sp=document.getElementById('wl-sized-pnl');
+      sp.textContent=fmt(w.sized_pnl||0);
+      sp.className='wallet-stat-val '+((w.sized_pnl||0)>0?'pos':'neg');
+    }
+  } catch(e) {
+    console.error('chart load failed', e);
+  }
+}
+
+function renderChart(){
+  const canvas = document.getElementById('pnl-chart');
+  if(!canvas || !chartData.length) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = 220 * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width;
+  const H = 220;
+  const pad = {top:20, right:16, bottom:30, left:56};
+  const cw = W - pad.left - pad.right;
+  const ch = H - pad.top - pad.bottom;
+
+  ctx.clearRect(0,0,W,H);
+
+  const sValues = chartData.map(p=>p.shadow_cumulative||0);
+  const lValues = chartData.map(p=>p.live_cumulative||0);
+  const allValues = [...sValues, ...lValues];
+  const minV = Math.min(0, ...allValues);
+  const maxV = Math.max(0, ...allValues);
+  const range = maxV - minV || 1;
+
+  const toX = i => pad.left + (i/(chartData.length-1||1))*cw;
+  const toY = v => pad.top + ch - ((v-minV)/range)*ch;
+
+  // Grid lines
+  ctx.strokeStyle = '#ffffff08';
+  ctx.lineWidth = 1;
+  [0, 0.25, 0.5, 0.75, 1].forEach(t => {
+    const y = pad.top + ch * t;
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left+cw, y); ctx.stroke();
+    const v = maxV - t*range;
+    ctx.fillStyle = '#6b6b80';
+    ctx.font = '10px JetBrains Mono, monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText((v>=0?'+':'')+v.toFixed(0), pad.left-6, y+4);
+  });
+
+  // Zero line
+  if(minV < 0 && maxV > 0){
+    ctx.strokeStyle = '#ffffff20';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4,4]);
+    const zy = toY(0);
+    ctx.beginPath(); ctx.moveTo(pad.left, zy); ctx.lineTo(pad.left+cw, zy); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Shadow area fill
+  const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top+ch);
+  grad.addColorStop(0, '#00e5a025');
+  grad.addColorStop(1, '#00e5a005');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.moveTo(toX(0), toY(0));
+  chartData.forEach((p,i) => ctx.lineTo(toX(i), toY(p.shadow_cumulative||0)));
+  ctx.lineTo(toX(chartData.length-1), toY(0));
+  ctx.closePath();
+  ctx.fill();
+
+  // Shadow line
+  ctx.strokeStyle = '#00e5a0';
+  ctx.lineWidth = 2;
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  chartData.forEach((p,i) => i===0 ? ctx.moveTo(toX(i),toY(p.shadow_cumulative||0)) : ctx.lineTo(toX(i),toY(p.shadow_cumulative||0)));
+  ctx.stroke();
+
+  // Shadow dots
+  chartData.forEach((p,i) => {
+    ctx.beginPath();
+    ctx.arc(toX(i), toY(p.shadow_cumulative||0), 3, 0, Math.PI*2);
+    ctx.fillStyle = '#00e5a0';
+    ctx.fill();
+  });
+
+  // Live line (blue)
+  const hasLive = lValues.some(v=>v!==0);
+  if(hasLive){
+    ctx.strokeStyle = '#4d8fff';
+    ctx.lineWidth = 2;
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    chartData.forEach((p,i) => i===0 ? ctx.moveTo(toX(i),toY(p.live_cumulative||0)) : ctx.lineTo(toX(i),toY(p.live_cumulative||0)));
+    ctx.stroke();
+    chartData.forEach((p,i) => {
+      ctx.beginPath();
+      ctx.arc(toX(i), toY(p.live_cumulative||0), 3, 0, Math.PI*2);
+      ctx.fillStyle = '#4d8fff';
+      ctx.fill();
+    });
+  }
+
+  // Legend
+  ctx.font = '10px Inter, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#00e5a0';
+  ctx.fillRect(pad.left, 4, 12, 3);
+  ctx.fillText('Shadow', pad.left+16, 9);
+  if(hasLive){
+    ctx.fillStyle = '#4d8fff';
+    ctx.fillRect(pad.left+70, 4, 12, 3);
+    ctx.fillText('Live', pad.left+86, 9);
+  }
+
+  // X labels
+  ctx.fillStyle = '#6b6b80';
+  ctx.textAlign = 'center';
+  chartData.forEach((p,i) => {
+    if(i===0 || i===chartData.length-1 || chartData.length<=7){
+      ctx.fillText(p.date.slice(5), toX(i), H-6);
+    }
+  });
+}
+
+function renderSizedChart(){
+  const canvas = document.getElementById('sized-chart');
+  if(!canvas || !chartData.length) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = 160 * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width;
+  const H = 160;
+  const pad = {top:16, right:16, bottom:26, left:52};
+  const cw = W - pad.left - pad.right;
+  const ch = H - pad.top - pad.bottom;
+  ctx.clearRect(0,0,W,H);
+  const values = chartData.map(p=>p.sized_cumulative||0);
+  const minV = Math.min(0,...values);
+  const maxV = Math.max(0,...values);
+  const range = maxV - minV || 1;
+  const toX = i => pad.left + (i/(chartData.length-1||1))*cw;
+  const toY = v => pad.top + ch - ((v-minV)/range)*ch;
+  // Grid
+  ctx.strokeStyle='#ffffff08'; ctx.lineWidth=1;
+  [0,0.5,1].forEach(t=>{
+    const y=pad.top+ch*t;
+    ctx.beginPath(); ctx.moveTo(pad.left,y); ctx.lineTo(pad.left+cw,y); ctx.stroke();
+    const v=maxV-t*range;
+    ctx.fillStyle='#6b6b80'; ctx.font='10px JetBrains Mono,monospace'; ctx.textAlign='right';
+    ctx.fillText((v>=0?'+':'')+v.toFixed(1), pad.left-4, y+4);
+  });
+  // Area
+  const grad=ctx.createLinearGradient(0,pad.top,0,pad.top+ch);
+  grad.addColorStop(0,'#4d8fff25'); grad.addColorStop(1,'#4d8fff05');
+  ctx.fillStyle=grad;
+  ctx.beginPath(); ctx.moveTo(toX(0),toY(0));
+  chartData.forEach((p,i)=>ctx.lineTo(toX(i),toY(p.sized_cumulative||0)));
+  ctx.lineTo(toX(chartData.length-1),toY(0)); ctx.closePath(); ctx.fill();
+  // Line
+  ctx.strokeStyle='#4d8fff'; ctx.lineWidth=2; ctx.lineJoin='round';
+  ctx.beginPath();
+  chartData.forEach((p,i)=>i===0?ctx.moveTo(toX(i),toY(p.sized_cumulative||0)):ctx.lineTo(toX(i),toY(p.sized_cumulative||0)));
+  ctx.stroke();
+  // Dots
+  chartData.forEach((p,i)=>{
+    ctx.beginPath(); ctx.arc(toX(i),toY(p.sized_cumulative||0),3,0,Math.PI*2);
+    ctx.fillStyle=(p.sized_cumulative||0)>=0?'#4d8fff':'#ff4d6d'; ctx.fill();
+  });
+  // X labels
+  ctx.fillStyle='#6b6b80'; ctx.font='10px Inter,sans-serif'; ctx.textAlign='center';
+  chartData.forEach((p,i)=>{
+    if(i===0||i===chartData.length-1||chartData.length<=7) ctx.fillText(p.date.slice(5),toX(i),H-4);
+  });
+  // Update total
+  const latest = chartData[chartData.length-1];
+  const total = latest ? (latest.sized_cumulative||0) : 0;
+  const el = document.getElementById('sized-total');
+  if(el){ el.textContent=fmt(total); el.className='pos' + (total<0?' neg':''); }
+}
+
+function renderSizedDailyList(){
+  const el = document.getElementById('sized-daily-list');
+  if(!el||!chartData.length) return;
+  el.innerHTML=[...chartData].reverse().map(p=>`
+    <div class="position-item">
+      <div>
+        <div style="font-size:13px;font-weight:500;">${p.date}</div>
+        <div style="font-size:11px;color:var(--muted);">cumulative: <span class="${colorClass(p.sized_cumulative||0)}">${fmt(p.sized_cumulative||0)}</span></div>
+      </div>
+      <div class="position-pnl ${colorClass(p.sized_daily||0)}">${fmt(p.sized_daily||0)}</div>
+    </div>`).join('');
+}
+
+function renderDailyList(){
+  const el = document.getElementById('daily-pnl-list');
+  if(!chartData.length){
+    el.innerHTML='<div class="empty-state"><div class="empty-icon">📊</div>No data yet</div>';
+    return;
+  }
+  el.innerHTML = [...chartData].reverse().map(p=>`
+    <div class="position-item" style="flex-direction:column;align-items:flex-start;gap:6px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
+        <div style="font-size:13px;font-weight:500;">${p.date}</div>
+        <div class="position-pnl ${colorClass(p.shadow_daily||0)}">${fmt(p.shadow_daily||0)}</div>
+      </div>
+      <div style="display:flex;gap:16px;font-size:11px;">
+        <span style="color:#00e5a0;">● Shadow: <span class="${colorClass(p.shadow_cumulative||0)}">${fmt(p.shadow_cumulative||0)}</span></span>
+        <span style="color:#4d8fff;">● Live: <span class="${colorClass(p.live_cumulative||0)}">${fmt(p.live_cumulative||0)}</span></span>
+      </div>
+    </div>`).join('');
+}
+
+async function addWatchFromScan(address, label, btn){
+  if(!confirm('Add '+address.slice(0,10)+'… to Watchlist?')) return;
+  btn.disabled=true; btn.textContent='…';
+  try{
+    const r=await fetch('/api/watchlist',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'add',address,label})});
+    const d=await r.json();
+    if(d.ok){btn.textContent='✓ Watching';btn.style.background='var(--blue-dim)';btn.style.color='var(--blue)';}
+    else{btn.textContent=d.error||'Failed';btn.style.color='var(--red)';btn.disabled=false;}
+  }catch(e){btn.textContent='Error';btn.disabled=false;}
+}
+async function promoteWallet(address, name, mode, btn){
+  const label = mode === 'shadow' ? 'Shadow' : 'Live';
+  const confirmed = confirm(`Add ${address.slice(0,10)}… to ${label} roster?\n\nThis will update your bot config immediately.`);
+  if(!confirmed) return;
+  btn.disabled = true;
+  btn.textContent = '…';
+  try {
+    const r = await fetch('/api/promote', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({address, name, mode})
+    });
+    const d = await r.json();
+    if(d.ok){
+      btn.textContent = mode === 'shadow' ? '✓ Shadowing' : '✓ Live';
+      btn.style.background = 'var(--green-dim)';
+      btn.style.borderColor = 'var(--green)';
+      btn.style.color = 'var(--green)';
+    } else {
+      btn.textContent = d.error || 'Failed';
+      btn.style.color = 'var(--red)';
+      btn.disabled = false;
+    }
+  } catch(e) {
+    btn.textContent = 'Error';
+    btn.style.color = 'var(--red)';
+    btn.disabled = false;
+  }
+}
+
+// Watchlist
+async function addToWatchlist(){
+  const address = document.getElementById('wl-address').value.trim();
+  const label = document.getElementById('wl-label').value.trim() || address.slice(0,10);
+  const msg = document.getElementById('wl-msg');
+  if(!address.startsWith('0x') || address.length < 20){
+    msg.style.color='var(--red)';
+    msg.textContent='⚠️ Invalid address';
+    return;
+  }
+  msg.style.color='var(--muted)';
+  msg.textContent='Adding…';
+  try {
+    const r = await fetch('/api/watchlist', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({action:'add', address, label})
+    });
+    const d = await r.json();
+    if(d.ok){
+      msg.style.color='var(--green)';
+      msg.textContent='✓ Added to watchlist';
+      document.getElementById('wl-address').value='';
+      document.getElementById('wl-label').value='';
+      loadWatchlist();
+    } else {
+      msg.style.color='var(--red)';
+      msg.textContent='⚠️ '+( d.error||'Failed');
+    }
+  } catch(e){
+    msg.style.color='var(--red)';
+    msg.textContent='⚠️ Error connecting';
+  }
+}
+
+async function removeFromWatchlist(address){
+  if(!confirm('Remove this wallet from watchlist?')) return;
+  await fetch('/api/watchlist', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({action:'remove', address})
+  });
+  loadWatchlist();
+}
+
+async function loadWatchlist(){
+  const el = document.getElementById('watchlist-cards');
+  el.innerHTML='<div class="empty-state"><div class="empty-icon">⏳</div>Loading…</div>';
+  try {
+    const r = await fetch('/api/watchlist');
+    const data = await r.json();
+    const wallets = data.wallets || [];
+    if(!wallets.length){
+      el.innerHTML='<div class="empty-state"><div class="empty-icon">👁</div>No wallets yet. Add a wallet above.</div>';
+      return;
+    }
+    // Show basic cards first
+    el.innerHTML = wallets.map(w=>`
+      <div class="wallet-card" style="margin-bottom:10px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div>
+            <div style="font-size:14px;font-weight:500;">${w.label||w.address.slice(0,10)}</div>
+            <div style="font-size:11px;color:var(--muted);font-family:var(--mono);">${w.address.slice(0,14)}…</div>
+          </div>
+          <button onclick="removeFromWatchlist('${w.address}')" style="background:var(--red-dim);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--red);font-size:11px;padding:4px 10px;cursor:pointer;font-family:var(--sans);">Remove</button>
+        </div>
+        <div id="wl-stats-${w.address.slice(2,10)}" style="font-size:12px;color:var(--muted);">Loading stats…</div>
+        <div style="display:flex;gap:6px;margin-top:10px;">
+          <a href="https://polymarket.com/profile/${w.address}" target="_blank" style="flex:1;text-align:center;padding:6px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--blue);font-size:11px;font-weight:500;text-decoration:none;">View Profile</a>
+          <button onclick="addWatchFromScan('${w.address}','${w.label||w.address.slice(0,8)}',this)" style="flex:1;padding:6px;background:var(--blue-dim);border:1px solid var(--blue);border-radius:var(--radius-sm);color:var(--blue);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--sans);">+ Watch</button>
+          <button onclick="promoteWallet('${w.address}','${w.label||w.address.slice(0,8)}','shadow',this)" style="flex:1;padding:6px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--sans);">+ Shadow</button>
+          <button onclick="promoteWallet('${w.address}','${w.label||w.address.slice(0,8)}','live',this)" style="flex:1;padding:6px;background:var(--green-dim);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--green);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--sans);">→ Live</button>
+        </div>
+      </div>`).join('');
+
+    // Load P&L stats
+    fetch('/api/watchlist/pnl').then(r=>r.json()).then(data=>{
+      (data.wallets||[]).forEach(w=>{
+        const el2 = document.getElementById('wl-stats-'+w.address.slice(2,10));
+        if(!el2) return;
+        if(w.error){
+          el2.textContent='Stats unavailable';
+          return;
+        }
+        el2.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
+          <div class="wallet-stat"><div class="wallet-stat-val ${colorClass(w.combined)}" style="font-size:12px;">${fmt(w.combined)}</div><div class="wallet-stat-lbl">Combined</div></div>
+          <div class="wallet-stat"><div class="wallet-stat-val ${colorClass(w.resolved)}" style="font-size:12px;">${fmt(w.resolved)}</div><div class="wallet-stat-lbl">Resolved</div></div>
+          <div class="wallet-stat"><div class="wallet-stat-val" style="font-size:12px;">${w.positions||0}</div><div class="wallet-stat-lbl">Positions</div></div>
+        </div>`;
+      });
+    }).catch(()=>{});
+  } catch(e){
+    el.innerHTML='<div class="empty-state"><div class="empty-icon">⚠️</div>Failed to load watchlist</div>';
+  }
+}
+
+function toggleScanDetail(id){
+  const el = document.getElementById(id);
+  if(el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+async function loadScanHistory(){
+  try {
+    const r = await fetch('/api/screener-history');
+    const data = await r.json();
+    const el = document.getElementById('scan-history-list');
+    const history = data.history || [];
+    if(!history.length){
+      el.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div>No scan history yet. Run the pipeline to start tracking.</div>';
+      return;
+    }
+    el.innerHTML = history.map((h,i)=>`
+      <div class="wallet-card" style="margin-bottom:8px;">
+        <div onclick="toggleScanDetail('scan-${i}')" style="cursor:pointer;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <div style="font-size:13px;font-weight:500;">${h.date}</div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:11px;padding:3px 8px;border-radius:20px;background:${h.verified_count>0?'var(--green-dim)':'var(--surface2)'};color:${h.verified_count>0?'var(--green)':'var(--muted)'};">${h.verified_count} verified</span>
+              <span style="color:var(--muted);font-size:14px;">▾</span>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;">
+            <div class="wallet-stat"><div class="wallet-stat-val">${h.wallets_discovered||0}</div><div class="wallet-stat-lbl">Found</div></div>
+            <div class="wallet-stat"><div class="wallet-stat-val">${h.screened||0}</div><div class="wallet-stat-lbl">Screened</div></div>
+            <div class="wallet-stat"><div class="wallet-stat-val">${h.passers||0}</div><div class="wallet-stat-lbl">Passers</div></div>
+            <div class="wallet-stat"><div class="wallet-stat-val">${h.network_count||0}</div><div class="wallet-stat-lbl">Network</div></div>
+          </div>
+        </div>
+        <div id="scan-${i}" style="display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:10px;">
+          ${h.verified&&h.verified.length>0?`
+            <div style="font-size:11px;font-weight:500;letter-spacing:0.8px;text-transform:uppercase;color:var(--green);margin-bottom:8px;">✓ Verified Passers</div>
+            ${h.verified.map(w=>`
+              <div class="position-item" style="margin-bottom:6px;flex-direction:column;align-items:flex-start;gap:8px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
+                  <a href="https://polymarket.com/profile/${w.address}" target="_blank" style="text-decoration:none;flex:1;">
+                    <div style="font-size:12px;font-weight:500;color:var(--blue);">${(w.address||'').slice(0,10)}…${(w.address||'').slice(-6)}</div>
+                    <div style="font-size:11px;color:var(--muted);">WR ${Math.round((w.win_rate||0)*100)}% · ${w.closed||0} closed</div>
+                  </a>
+                  <div style="font-family:var(--mono);font-size:13px;font-weight:500;" class="${(w.pnl||0)>0?'pos':'neg'}">${fmt(w.pnl||0)}</div>
+                </div>
+                <div style="display:flex;gap:6px;width:100%;">
+                  <button onclick="addWatchFromScan('${w.address}','${(w.address||w.address).slice(0,8)}',this)" style="flex:1;padding:6px;background:var(--blue-dim);border:1px solid var(--blue);border-radius:var(--radius-sm);color:var(--blue);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--sans);">+ Watch</button>
+                  <button onclick="promoteWallet('${w.address}','${(w.address||'').slice(0,8)}','shadow',this)" style="flex:1;padding:6px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--sans);">+ Shadow</button>
+                  <button onclick="promoteWallet('${w.address}','${(w.address||'').slice(0,8)}','live',this)" style="flex:1;padding:6px;background:var(--green-dim);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--green);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--sans);">→ Live</button>
+                </div>
+              </div>`).join('')}
+          `:'<div style="font-size:12px;color:var(--muted);padding:8px 0;">No verified passers this scan</div>'}
+          ${h.network&&h.network.length>0?`
+            <div style="font-size:11px;font-weight:500;letter-spacing:0.8px;text-transform:uppercase;color:var(--blue);margin:10px 0 8px;">🌐 Network Passers</div>
+            ${h.network.map(w=>`
+              <div class="position-item" style="margin-bottom:6px;flex-direction:column;align-items:flex-start;gap:8px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
+                  <a href="https://polymarket.com/profile/${w.address}" target="_blank" style="text-decoration:none;flex:1;">
+                    <div style="font-size:12px;font-weight:500;color:var(--blue);">${(w.address||'').slice(0,10)}…${(w.address||'').slice(-6)}</div>
+                    <div style="font-size:11px;color:var(--muted);">WR ${Math.round((w.win_rate||0)*100)}% · ${w.shared||0} shared mkts</div>
+                  </a>
+                  <div style="font-family:var(--mono);font-size:13px;font-weight:500;" class="${(w.pnl||0)>0?'pos':'neg'}">${fmt(w.pnl||0)}</div>
+                </div>
+                <div style="display:flex;gap:6px;width:100%;">
+                  <button onclick="addWatchFromScan('${w.address}','${(w.address||w.address).slice(0,8)}',this)" style="flex:1;padding:6px;background:var(--blue-dim);border:1px solid var(--blue);border-radius:var(--radius-sm);color:var(--blue);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--sans);">+ Watch</button>
+                  <button onclick="promoteWallet('${w.address}','${(w.address||'').slice(0,8)}','shadow',this)" style="flex:1;padding:6px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--sans);">+ Shadow</button>
+                  <button onclick="promoteWallet('${w.address}','${(w.address||'').slice(0,8)}','live',this)" style="flex:1;padding:6px;background:var(--green-dim);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--green);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--sans);">→ Live</button>
+                </div>
+              </div>`).join('')}
+          `:''}
+        </div>
+      </div>`).join('');
+  } catch(e) {
+    console.error('scan history failed', e);
+  }
+}
+
+async function runScanner(){
+  const btn=document.getElementById('scan-btn');
+  const status=document.getElementById('scanner-status');
+  btn.disabled=true;btn.textContent='⏳ Pipeline running… (~30 min)';
+  btn.style.opacity='0.6';
+  status.innerHTML='<div class="info-banner">🔄 Pipeline started. Results will update automatically when complete. You can close this tab — it runs in the background.</div>';
+  try{
+    const r=await fetch('/api/run-scanner',{method:'POST'});
+    const d=await r.json();
+    if(d.ok){status.innerHTML='<div class="live-banner">✅ Pipeline started successfully. Check back in ~30 minutes.</div>';}
+    else{status.innerHTML=`<div class="info-banner">⚠️ ${d.error||'Failed to start pipeline'}</div>`;btn.disabled=false;btn.textContent='⚡ Run Full Pipeline';btn.style.opacity='1';}
+  }catch(e){status.innerHTML='<div class="info-banner">⚠️ Could not connect to server</div>';btn.disabled=false;btn.textContent='⚡ Run Full Pipeline';btn.style.opacity='1';}
+}
+async function runNetwork(){
+  const btn=document.getElementById('network-btn');
+  const status=document.getElementById('scanner-status');
+  btn.disabled=true;btn.textContent='⏳ Network scan running… (~5 min)';
+  btn.style.opacity='0.6';
+  status.innerHTML='<div class="info-banner">🔄 Network follow started. Scanning co-traders…</div>';
+  try{
+    const r=await fetch('/api/run-network',{method:'POST'});
+    const d=await r.json();
+    if(d.ok){status.innerHTML='<div class="live-banner">✅ Network scan started. Results will update shortly.</div>';}
+    else{status.innerHTML=`<div class="info-banner">⚠️ ${d.error||'Failed to start network scan'}</div>`;btn.disabled=false;btn.textContent='🌐 Run Network Follow';btn.style.opacity='1';}
+  }catch(e){status.innerHTML='<div class="info-banner">⚠️ Could not connect to server</div>';btn.disabled=false;btn.textContent='🌐 Run Network Follow';btn.style.opacity='1';}
+}
+async function loadData(){
+  try{
+    const res=await fetch('/api/data');const data=await res.json();
+    renderWallets(data.shadow_pnl);
+    renderLive(data.live_pnl);
+    renderSizing(data.sizing);
+    renderBot(data.bot_status);
+    renderScreener(data.screener);
+    const now=new Date();
+    document.getElementById('last-updated').textContent=`Updated ${now.toLocaleTimeString()}`;
+    document.getElementById('conn-status')&&(document.getElementById('conn-status').innerHTML='<span class="pos">Connected</span>');
+    document.getElementById('server-url')&&(document.getElementById('server-url').textContent=window.location.host);
+  }catch(e){
+    document.getElementById('status-dot').className='status-dot offline';
+  }
+}
+loadTheme();
+loadData();
+loadNotifSettings();
+updateNotifButton();
+loadChart();
+loadScanHistory();
+setInterval(loadData,30000);
+setInterval(pollEvents,60000);
+setInterval(loadChart,300000);
+pollEvents();
+</script>
+<!-- CHART PAGE -->
+<div class="page" id="page-chart" style="padding-bottom:100px;">
+  <div style="padding:16px;">
+    <p class="section-label">Cumulative P&L</p>
+    <div class="bot-card" style="padding:12px;">
+      <canvas id="pnl-chart" style="width:100%;height:220px;"></canvas>
+    </div>
+    <p class="section-label">Daily P&L</p>
+    <div id="daily-pnl-list"></div>
+    <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:12px;">Shadow P&L based on $100 base sizing · started Jun 13 2026</div>
+
+    <p class="section-label">At Your $500 Sizing</p>
+    <div class="bot-card" style="margin-bottom:10px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div>
+          <div style="font-size:12px;color:var(--muted);">$7.50/bet · 1.5% risk</div>
+        </div>
+        <div style="font-family:var(--mono);font-size:20px;font-weight:600;" id="sized-total" class="pos">—</div>
+      </div>
+      <canvas id="sized-chart" style="width:100%;height:160px;"></canvas>
+    </div>
+    <p class="section-label">Copied Trades W/L</p>
+    <div class="bot-card" style="margin-bottom:10px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;">
+        <div class="wallet-stat">
+          <div class="wallet-stat-val pos" id="wl-wins">—</div>
+          <div class="wallet-stat-lbl">Wins</div>
+        </div>
+        <div class="wallet-stat">
+          <div class="wallet-stat-val neg" id="wl-losses">—</div>
+          <div class="wallet-stat-lbl">Losses</div>
+        </div>
+        <div class="wallet-stat">
+          <div class="wallet-stat-val" id="wl-wr">—</div>
+          <div class="wallet-stat-lbl">Win Rate</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div class="wallet-stat">
+          <div class="wallet-stat-val" id="wl-total">—</div>
+          <div class="wallet-stat-lbl">Total Resolved</div>
+        </div>
+        <div class="wallet-stat">
+          <div class="wallet-stat-val pos" id="wl-sized-pnl">—</div>
+          <div class="wallet-stat-lbl">P&L at $7.50/bet</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:10px;text-align:center;">Based on trades your bot would have copied</div>
+    </div>
+    <p class="section-label">Realistic Simulation</p>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+      <span style="font-size:16px;font-weight:500;color:var(--muted);">$</span>
+      <input type="number" id="sim-capital" value="500" min="100" max="1000000" step="100"
+        style="flex:2;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;font-size:16px;font-family:var(--mono);color:var(--text);outline:none;-webkit-appearance:none;"
+        placeholder="Capital">
+      <input type="number" id="sim-risk" value="1.5" min="0.1" max="10" step="0.1"
+        style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;font-size:16px;font-family:var(--mono);color:var(--text);outline:none;-webkit-appearance:none;"
+        placeholder="Risk%">
+      <span style="font-size:12px;color:var(--muted);">%</span>
+      <button onclick="loadSimulation()" style="padding:10px 14px;background:var(--green-dim);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--green);font-size:13px;font-weight:600;font-family:var(--sans);cursor:pointer;">Run</button>
+    </div>
+    <div class="info-banner" id="sim-banner">⏳ Loading simulation…</div>
+    <div class="summary-bar" style="margin-bottom:10px;">
+      <div class="summary-item"><div class="summary-val" id="sim-placed">—</div><div class="summary-lbl">Placed</div></div>
+      <div class="summary-item"><div class="summary-val" id="sim-skipped">—</div><div class="summary-lbl">Skipped</div></div>
+      <div class="summary-item"><div class="summary-val" id="sim-final">—</div><div class="summary-lbl">Final Capital</div></div>
+    </div>
+    <div class="screener-card" style="margin-bottom:10px;">
+      <div class="screener-row"><span class="screener-label">W / L</span><span class="screener-val" id="sim-wl">—</span></div>
+      <div class="screener-row"><span class="screener-label">Win Rate</span><span class="screener-val" id="sim-wr">—</span></div>
+      <div class="screener-row"><span class="screener-label">Real P&L</span><span class="screener-val" id="sim-pnl">—</span></div>
+      <div class="screener-row"><span class="screener-label">Return</span><span class="screener-val" id="sim-return">—</span></div>
+      <div class="screener-row" style="border-bottom:none;"><span class="screener-label">Max simultaneous</span><span class="screener-val" id="sim-maxpos">—</span></div>
+    </div>
+    <p class="section-label">Per Wallet Breakdown</p>
+    <div id="sim-traders"></div>
+    <p class="section-label">Daily at $500 Sizing</p>
+    <div id="sized-daily-list"></div>
+  </div>
+</div>
+
+<!-- WATCHLIST PAGE -->
+<div class="page" id="page-watchlist" style="padding-bottom:100px;">
+  <div style="padding:16px;">
+    <p class="section-label">Add Wallet</p>
+    <div class="bot-card" style="margin-bottom:10px;">
+      <div style="margin-bottom:10px;">
+        <input type="text" id="wl-address" placeholder="0x… wallet address" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;font-size:13px;font-family:var(--mono);color:var(--text);outline:none;margin-bottom:8px;">
+        <input type="text" id="wl-label" placeholder="Label (optional)" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;font-size:13px;font-family:var(--sans);color:var(--text);outline:none;">
+      </div>
+      <button onclick="addToWatchlist()" style="width:100%;padding:12px;background:var(--blue-dim);border:1px solid var(--blue);border-radius:var(--radius-sm);color:var(--blue);font-size:13px;font-weight:600;font-family:var(--sans);cursor:pointer;">+ Add to Watchlist</button>
+      <div id="wl-msg" style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px;"></div>
+    </div>
+    <p class="section-label">Watching</p>
+    <div id="watchlist-cards"><div class="empty-state"><div class="empty-icon">👁</div>No wallets yet. Add a wallet address above to start tracking.</div></div>
+  </div>
+</div>
+
+<!-- CONFIG PAGE -->
+<div class="page" id="page-config" style="padding-bottom:100px;">
+  <div style="padding:16px;">
+    <p class="section-label">Bot Configuration</p>
+    <div class="bot-card" style="margin-bottom:10px;">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5;">Configure DashView to connect to your Atlas bot installation. Changes take effect immediately after saving.</div>
+      <div style="margin-bottom:10px;">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">Bot Name</div>
+        <input type="text" id="cfg-bot-name" placeholder="Atlas" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;font-size:13px;font-family:var(--sans);color:var(--text);outline:none;">
+      </div>
+      <div style="margin-bottom:10px;">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">Bot Directory</div>
+        <input type="text" id="cfg-bot-dir" placeholder="/opt/polymarket-bot" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;font-size:13px;font-family:var(--mono);color:var(--text);outline:none;">
+      </div>
+      <div style="margin-bottom:10px;">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">Domain (for HTTPS)</div>
+        <input type="text" id="cfg-domain" placeholder="yourname.duckdns.org" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;font-size:13px;font-family:var(--mono);color:var(--text);outline:none;">
+      </div>
+      <div style="margin-bottom:14px;">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">Port</div>
+        <input type="number" id="cfg-port" placeholder="443" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;font-size:13px;font-family:var(--mono);color:var(--text);outline:none;">
+      </div>
+      <button onclick="saveConfig()" style="width:100%;padding:13px;background:var(--green-dim);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--green);font-size:14px;font-weight:600;font-family:var(--sans);cursor:pointer;">💾 Save & Restart</button>
+      <div id="cfg-msg" style="font-size:11px;color:var(--muted);text-align:center;margin-top:10px;"></div>
+    </div>
+    <p class="section-label">Quick Setup Guide</p>
+    <div class="bot-card">
+      <div style="font-size:12px;color:var(--muted);line-height:1.8;">
+        <div>1. Install Atlas bot on your VPS</div>
+        <div>2. Clone DashView repo to <span style="font-family:var(--mono);color:var(--text);">/opt/dashview</span></div>
+        <div>3. Set Bot Directory to your Atlas install path</div>
+        <div>4. Set Bot Name to whatever you called your bot</div>
+        <div>5. Set up DuckDNS + SSL (see HTTPS_SETUP.md)</div>
+        <div>6. Save & Restart</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS PAGE -->
+<div class="page" id="page-settings" style="padding-bottom:100px;">
+  <div style="padding:16px;">
+    <p class="section-label">Notifications</p>
+    <div class="bot-card" style="margin-bottom:10px;">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:12px;line-height:1.5;">Enable alerts below. Tap Allow when your browser asks for permission.</div>
+      <button onclick="requestNotificationPermission()" id="notif-permission-btn" style="width:100%;padding:12px;background:var(--blue-dim);border:1px solid var(--blue);border-radius:var(--radius-sm);color:var(--blue);font-size:13px;font-weight:600;font-family:var(--sans);cursor:pointer;margin-bottom:12px;">🔔 Enable Notifications</button>
+      <div id="notif-status" style="font-size:11px;color:var(--muted);text-align:center;margin-bottom:12px;"></div>
+    </div>
+    <div class="bot-card">
+      <div id="notif-toggles">
+        <div class="screener-row" style="padding:12px 0;">
+          <div><div style="font-size:13px;font-weight:500;">🟢 Big Win</div><div style="font-size:11px;color:var(--muted);">Shadow market resolves with profit &gt;$50</div></div>
+          <label class="toggle"><input type="checkbox" id="notif-big-win" checked onchange="saveNotifSettings()"><span class="slider"></span></label>
+        </div>
+        <div class="screener-row" style="padding:12px 0;">
+          <div><div style="font-size:13px;font-weight:500;">🔴 Big Loss</div><div style="font-size:11px;color:var(--muted);">Shadow market resolves with loss &gt;$50</div></div>
+          <label class="toggle"><input type="checkbox" id="notif-big-loss" checked onchange="saveNotifSettings()"><span class="slider"></span></label>
+        </div>
+        <div class="screener-row" style="padding:12px 0;">
+          <div><div style="font-size:13px;font-weight:500;">⚡ Trade Copied</div><div style="font-size:11px;color:var(--muted);">Atlas copies a shadow wallet trade</div></div>
+          <label class="toggle"><input type="checkbox" id="notif-copied" onchange="saveNotifSettings()"><span class="slider"></span></label>
+        </div>
+        <div class="screener-row" style="padding:12px 0;">
+          <div><div style="font-size:13px;font-weight:500;">📈 New Trade</div><div style="font-size:11px;color:var(--muted);">Shadow wallet places any new bet</div></div>
+          <label class="toggle"><input type="checkbox" id="notif-new-trade" onchange="saveNotifSettings()"><span class="slider"></span></label>
+        </div>
+        <div class="screener-row" style="padding:12px 0;">
+          <div><div style="font-size:13px;font-weight:500;">🔴 Bot Offline</div><div style="font-size:11px;color:var(--muted);">Atlas stops running</div></div>
+          <label class="toggle"><input type="checkbox" id="notif-bot-offline" checked onchange="saveNotifSettings()"><span class="slider"></span></label>
+        </div>
+        <div class="screener-row" style="padding:12px 0;border-bottom:none;">
+          <div><div style="font-size:13px;font-weight:500;">📈 Live Trade</div><div style="font-size:11px;color:var(--muted);">Real order placed when live trading active</div></div>
+          <label class="toggle"><input type="checkbox" id="notif-live-trade" checked onchange="saveNotifSettings()"><span class="slider"></span></label>
+        </div>
+      </div>
+    </div>
+    <p class="section-label">Appearance</p>
+    <div class="bot-card" style="margin-bottom:10px;">
+      <div class="screener-row" style="border-bottom:none;">
+        <div><div style="font-size:13px;font-weight:500;">🌙 Dark Mode</div><div style="font-size:11px;color:var(--muted);">Toggle light or dark theme</div></div>
+        <label class="toggle"><input type="checkbox" id="dark-mode-toggle" checked onchange="toggleTheme()"><span class="slider"></span></label>
+      </div>
+    </div>
+    <p class="section-label">Bot Configuration</p>
+    <div class="bot-card" style="margin-bottom:10px;">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5;">Point DashView at your Atlas bot installation.</div>
+      <div style="margin-bottom:10px;">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">Bot Name</div>
+        <input type="text" id="cfg-bot-name" placeholder="Atlas" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;font-size:13px;font-family:var(--sans);color:var(--text);outline:none;">
+      </div>
+      <div style="margin-bottom:10px;">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">Bot Directory</div>
+        <input type="text" id="cfg-bot-dir" placeholder="/opt/polymarket-bot" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;font-size:13px;font-family:var(--mono);color:var(--text);outline:none;">
+      </div>
+      <div style="margin-bottom:10px;">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">Domain</div>
+        <input type="text" id="cfg-domain" placeholder="yourname.duckdns.org" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;font-size:13px;font-family:var(--mono);color:var(--text);outline:none;">
+      </div>
+      <div style="margin-bottom:14px;">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">Port</div>
+        <input type="number" id="cfg-port" placeholder="443" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;font-size:13px;font-family:var(--mono);color:var(--text);outline:none;">
+      </div>
+      <button onclick="saveConfig()" style="width:100%;padding:12px;background:var(--green-dim);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--green);font-size:13px;font-weight:600;font-family:var(--sans);cursor:pointer;">💾 Save & Restart</button>
+      <div id="cfg-msg" style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px;"></div>
+    </div>
+    <p class="section-label">Connection</p>
+    <div class="bot-card">
+      <div class="screener-row"><span class="screener-label">Server</span><span class="screener-val" id="server-url" style="font-size:11px;">—</span></div>
+      <div class="screener-row"><span class="screener-label">Status</span><span class="screener-val" id="conn-status">—</span></div>
+      <div class="screener-row" style="border-bottom:none;"><span class="screener-label">Last sync</span><span class="screener-val screener-time" id="last-sync">—</span></div>
+    </div>
+    <p class="section-label">About</p>
+    <div class="bot-card">
+      <div style="font-size:14px;font-weight:500;margin-bottom:8px;">DashView v2.0</div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.6;">Mobile dashboard for Polymarket shadow trading.<br>Built on top of the Atlas copy-trading bot.<br><br>Data refreshes every 30 seconds automatically.</div>
+    </div>
+  </div>
+</div>
+
+<div id="page-positions" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg);z-index:200;overflow-y:auto;">
+  <div style="position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--border);padding:16px 20px;display:flex;align-items:center;gap:12px;backdrop-filter:blur(20px);">
+    <button onclick="closePositions()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:0;line-height:1;">←</button>
+    <div>
+      <div style="font-size:16px;font-weight:600;" id="pos-trader-name">Positions</div>
+      <div style="font-size:11px;color:var(--muted);font-family:var(--mono);" id="pos-counts">Loading…</div>
+    </div>
+  </div>
+  <div style="padding:16px 16px 80px;">
+    <p class="section-label">Open Positions</p>
+    <div id="pos-open-list"><div class="empty-state"><div class="empty-icon">⏳</div>Loading…</div></div>
+    <p class="section-label">Recently Closed</p>
+    <div id="pos-closed-list"><div class="empty-state"><div class="empty-icon">✅</div>Loading…</div></div>
+  </div>
+</div>
+</body>
+</html>
