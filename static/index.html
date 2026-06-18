@@ -148,6 +148,10 @@ input:checked+.slider:before{transform:translateX(18px);background:var(--green)}
     <button class="refresh-btn" onclick="loadData()">↻ Refresh</button>
   </div>
 </div>
+<div id="update-banner" style="display:none;background:var(--blue-dim);border-bottom:1px solid var(--blue);padding:10px 16px;align-items:center;justify-content:space-between;gap:10px;">
+  <div style="font-size:13px;color:var(--blue);">🆕 New update available!</div>
+  <button onclick="showPage('settings')" style="background:var(--blue);border:none;border-radius:var(--radius-sm);color:#fff;font-size:12px;font-weight:600;padding:6px 12px;cursor:pointer;font-family:var(--sans);">Update</button>
+</div>
 <div class="content">
 
   <!-- SHADOW TAB -->
@@ -284,9 +288,88 @@ input:checked+.slider:before{transform:translateX(18px);background:var(--green)}
       </label>
     </div>
     <div id="watchlist-cards"><div class="empty-state" style="padding:24px;"><div class="empty-icon" style="font-size:24px;">👁</div>No wallets watching yet</div></div>
+    <p class="section-label">Screener Settings</p>
+    <div class="screener-card" id="screener-settings-card" style="margin-bottom:10px;">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.5;">Adjust thresholds before running. Hit <b>Default</b> to restore saved defaults.</div>
+
+      <div style="font-size:11px;font-weight:600;letter-spacing:0.6px;text-transform:uppercase;color:var(--blue);margin-bottom:10px;">Phase 1+2 Filters</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+        <div class="wallet-stat">
+          <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Min Win Rate %</div>
+          <input type="number" id="cfg-min-wr" min="0" max="100" step="1" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:13px;font-family:var(--mono);color:var(--text);outline:none;">
+        </div>
+        <div class="wallet-stat">
+          <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Min Closed Markets</div>
+          <input type="number" id="cfg-min-closed" min="1" max="100" step="1" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:13px;font-family:var(--mono);color:var(--text);outline:none;">
+        </div>
+        <div class="wallet-stat">
+          <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Max Two-Sided %</div>
+          <input type="number" id="cfg-max-two-sided" min="0" max="100" step="1" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:13px;font-family:var(--mono);color:var(--text);outline:none;">
+        </div>
+        <div class="wallet-stat">
+          <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Min Closed P&L $</div>
+          <input type="number" id="cfg-min-pnl" min="0" step="50" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:13px;font-family:var(--mono);color:var(--text);outline:none;">
+        </div>
+        <div class="wallet-stat">
+          <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Min Trades 30d</div>
+          <input type="number" id="cfg-min-trades" min="1" step="1" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:13px;font-family:var(--mono);color:var(--text);outline:none;">
+        </div>
+        <div class="wallet-stat">
+          <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Max Trades 30d</div>
+          <input type="number" id="cfg-max-trades" min="100" step="100" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:13px;font-family:var(--mono);color:var(--text);outline:none;">
+        </div>
+        <div class="wallet-stat">
+          <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Max Days Since Trade</div>
+          <input type="number" id="cfg-max-days" min="1" max="90" step="1" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:13px;font-family:var(--mono);color:var(--text);outline:none;">
+        </div>
+        <div class="wallet-stat">
+          <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">N Markets to Crawl</div>
+          <input type="number" id="cfg-n-markets" min="10" max="500" step="10" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:13px;font-family:var(--mono);color:var(--text);outline:none;">
+        </div>
+      </div>
+
+      <div style="font-size:11px;font-weight:600;letter-spacing:0.6px;text-transform:uppercase;color:var(--blue);margin-bottom:10px;">Deep Screen</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+        <div class="wallet-stat">
+          <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Wallets to Screen</div>
+          <input type="number" id="cfg-n-deep" min="10" step="10" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:13px;font-family:var(--mono);color:var(--text);outline:none;">
+        </div>
+        <div class="wallet-stat">
+          <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Trade History Pages</div>
+          <input type="number" id="cfg-pages" min="1" max="10" step="1" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:13px;font-family:var(--mono);color:var(--text);outline:none;">
+        </div>
+      </div>
+
+      <div style="font-size:11px;font-weight:600;letter-spacing:0.6px;text-transform:uppercase;color:var(--blue);margin-bottom:10px;">Tier 2 Filters</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+        <div class="wallet-stat">
+          <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Min Bucket WR %</div>
+          <input type="number" id="cfg-bucket-wr" min="0" max="100" step="1" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:13px;font-family:var(--mono);color:var(--text);outline:none;">
+        </div>
+        <div class="wallet-stat">
+          <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Max Drawdown Ratio</div>
+          <input type="number" id="cfg-drawdown" min="1" max="20" step="0.5" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:13px;font-family:var(--mono);color:var(--text);outline:none;">
+        </div>
+        <div class="wallet-stat">
+          <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Min Concentration</div>
+          <input type="number" id="cfg-concentration" min="0" max="1" step="0.05" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:13px;font-family:var(--mono);color:var(--text);outline:none;">
+        </div>
+        <div class="wallet-stat">
+          <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Min Recent Trades</div>
+          <input type="number" id="cfg-recent-trades" min="1" max="100" step="1" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:13px;font-family:var(--mono);color:var(--text);outline:none;">
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;">
+        <button onclick="resetScreenerDefaults()" style="flex:1;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);font-size:12px;font-weight:600;font-family:var(--sans);cursor:pointer;">↺ Default</button>
+        <button onclick="saveScreenerConfig(false)" style="flex:1;padding:10px;background:var(--blue-dim);border:1px solid var(--blue);border-radius:var(--radius-sm);color:var(--blue);font-size:12px;font-weight:600;font-family:var(--sans);cursor:pointer;">💾 Save as Default</button>
+      </div>
+      <div id="screener-cfg-msg" style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px;min-height:16px;"></div>
+    </div>
+
     <p class="section-label">Run Scanner</p>
     <div id="scanner-status" style="margin-bottom:10px;"></div>
-    <button onclick="runScanner()" id="scan-btn" style="width:100%;padding:14px;background:var(--green-dim);border:1px solid var(--green);border-radius:var(--radius);color:var(--green);font-size:14px;font-weight:600;font-family:var(--sans);cursor:pointer;letter-spacing:0.3px;-webkit-tap-highlight-color:transparent;">⚡ Run Full Pipeline</button>
+    <button onclick="runScannerWithConfig()" id="scan-btn" style="width:100%;padding:14px;background:var(--green-dim);border:1px solid var(--green);border-radius:var(--radius);color:var(--green);font-size:14px;font-weight:600;font-family:var(--sans);cursor:pointer;letter-spacing:0.3px;-webkit-tap-highlight-color:transparent;">⚡ Run with These Settings</button>
     <button onclick="runNetwork()" id="network-btn" style="width:100%;padding:14px;background:var(--blue-dim);border:1px solid var(--blue);border-radius:var(--radius);color:var(--blue);font-size:14px;font-weight:600;font-family:var(--sans);cursor:pointer;letter-spacing:0.3px;margin-top:10px;-webkit-tap-highlight-color:transparent;">🌐 Run Network Follow</button>
   </div>
 
@@ -420,7 +503,7 @@ const INITIALS=n=>n.split(/[_\s]/).map(w=>w[0]||'').join('').toUpperCase().slice
 function fmt(v){if(v===0)return'$0';const abs=Math.abs(v);const s=abs>=1000?`$${(abs/1000).toFixed(1)}K`:`$${abs.toFixed(0)}`;return v<0?`-${s}`:`+${s}`;}
 function colorClass(v){if(v>0)return'pos';if(v<0)return'neg';return'neu';}
 function timeAgo(ts){const d=Math.floor((Date.now()/1000)-ts);if(d<60)return`${d}s ago`;if(d<3600)return`${Math.floor(d/60)}m ago`;if(d<86400)return`${Math.floor(d/3600)}h ago`;return`${Math.floor(d/86400)}d ago`;}
-function showPage(name){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));document.getElementById(`page-${name}`).classList.add('active');document.getElementById(`nav-${name}`).classList.add('active');if(name==='chart'){loadChart();}if(name==='settings'){loadConfig();}if(name==='screener'){loadScanHistory();loadWatchlist();}}
+function showPage(name){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));document.getElementById(`page-${name}`).classList.add('active');document.getElementById(`nav-${name}`).classList.add('active');if(name==='chart'){loadChart();}if(name==='settings'){loadConfig();}if(name==='screener'){loadScanHistory();loadWatchlist();try{loadScreenerConfig();}catch(e){console.error('screener config failed',e);}}}
 
 function renderWallets(wallets){
   const el=document.getElementById('wallet-list');
@@ -1140,23 +1223,35 @@ async function loadWatchlist(){
       return;
     }
     // Show basic cards first
-    el.innerHTML = wallets.map(w=>`
-      <div class="wallet-card" style="margin-bottom:10px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-          <div>
-            <div style="font-size:14px;font-weight:500;">${w.label||w.address.slice(0,10)}</div>
-            <div style="font-size:11px;color:var(--muted);font-family:var(--mono);">${w.address.slice(0,14)}…</div>
-          </div>
-          <button onclick="removeFromWatchlist('${w.address}')" style="background:var(--red-dim);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--red);font-size:11px;padding:4px 10px;cursor:pointer;font-family:var(--sans);">Remove</button>
-        </div>
-        <div id="wl-stats-${w.address.slice(2,10)}" style="font-size:12px;color:var(--muted);">Loading stats…</div>
-        <div style="display:flex;gap:6px;margin-top:10px;">
-          <a href="https://polymarket.com/profile/${w.address}" target="_blank" style="flex:1;text-align:center;padding:6px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--blue);font-size:11px;font-weight:500;text-decoration:none;">View Profile</a>
-          <button onclick="addWatchFromScan('${w.address}','${w.label||w.address.slice(0,8)}',this)" style="flex:1;padding:6px;background:var(--blue-dim);border:1px solid var(--blue);border-radius:var(--radius-sm);color:var(--blue);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--sans);">+ Watch</button>
-          <button onclick="promoteWallet('${w.address}','${w.label||w.address.slice(0,8)}','shadow',this)" style="flex:1;padding:6px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--sans);">+ Shadow</button>
-          <button onclick="promoteWallet('${w.address}','${w.label||w.address.slice(0,8)}','live',this)" style="flex:1;padding:6px;background:var(--green-dim);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--green);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--sans);">→ Live</button>
-        </div>
-      </div>`).join('');
+    el.innerHTML = wallets.map(function(w){
+      var card = document.createElement('div');
+      card.className = 'wallet-card';
+      card.style.marginBottom = '10px';
+      var label = w.label || w.address.slice(0,10);
+      var addr = w.address;
+      var lbl8 = w.label || w.address.slice(0,8);
+      card.innerHTML = [
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">',
+        '<div>',
+        '<div style="font-size:14px;font-weight:500;">' + escapeHtml(label) + '</div>',
+        '<div style="font-size:11px;color:var(--muted);font-family:var(--mono);">' + escapeHtml(addr.slice(0,14)) + '&hellip;</div>',
+        '</div>',
+        '<button class="remove-wl-btn" data-addr="' + escapeHtml(addr) + '" style="background:var(--red-dim);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--red);font-size:11px;padding:4px 10px;cursor:pointer;font-family:var(--sans);">Remove</button>',
+        '</div>',
+        '<div id="wl-stats-' + addr.slice(2,10) + '" style="font-size:12px;color:var(--muted);">Loading stats&hellip;</div>',
+        '<div style="display:flex;gap:6px;margin-top:10px;">',
+        '<a href="https://polymarket.com/profile/' + escapeHtml(addr) + '" target="_blank" style="flex:1;text-align:center;padding:6px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--blue);font-size:11px;font-weight:500;text-decoration:none;">View Profile</a>',
+        '<button class="watch-wl-btn" data-addr="' + escapeHtml(addr) + '" data-lbl="' + escapeHtml(lbl8) + '" style="flex:1;padding:6px;background:var(--blue-dim);border:1px solid var(--blue);border-radius:var(--radius-sm);color:var(--blue);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--sans);">+ Watch</button>',
+        '<button class="shadow-wl-btn" data-addr="' + escapeHtml(addr) + '" data-lbl="' + escapeHtml(lbl8) + '" style="flex:1;padding:6px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--sans);">+ Shadow</button>',
+        '<button class="live-wl-btn" data-addr="' + escapeHtml(addr) + '" data-lbl="' + escapeHtml(lbl8) + '" style="flex:1;padding:6px;background:var(--green-dim);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--green);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--sans);">&#x2192; Live</button>',
+        '</div>'
+      ].join('');
+      card.querySelector('.remove-wl-btn').onclick = function(){ removeFromWatchlist(addr); };
+      card.querySelector('.watch-wl-btn').onclick = function(e){ addWatchFromScan(addr, lbl8, e.target); };
+      card.querySelector('.shadow-wl-btn').onclick = function(e){ promoteWallet(addr, lbl8, 'shadow', e.target); };
+      card.querySelector('.live-wl-btn').onclick = function(e){ promoteWallet(addr, lbl8, 'live', e.target); };
+      return card.outerHTML;
+    }).join('');
 
     // Load P&L stats
     fetch('/api/watchlist/pnl').then(r=>r.json()).then(data=>{
@@ -1201,6 +1296,7 @@ async function loadScanHistory(){
             <div style="font-size:13px;font-weight:500;">${h.date}</div>
             <div style="display:flex;align-items:center;gap:8px;">
               <span style="font-size:11px;padding:3px 8px;border-radius:20px;background:${h.verified_count>0?'var(--green-dim)':'var(--surface2)'};color:${h.verified_count>0?'var(--green)':'var(--muted)'};">${h.verified_count} verified</span>
+              ${h.config_used&&h.config_used.filters?`<span style="font-size:10px;color:var(--muted);font-family:var(--mono);">WR≥${Math.round((h.config_used.filters.min_win_rate||0)*100)}%</span>`:''}
               <span style="color:var(--muted);font-size:14px;">▾</span>
             </div>
           </div>
@@ -1215,39 +1311,16 @@ async function loadScanHistory(){
           ${h.verified&&h.verified.length>0?`
             <div style="font-size:11px;font-weight:500;letter-spacing:0.8px;text-transform:uppercase;color:var(--green);margin-bottom:8px;">✓ Verified Passers</div>
             ${h.verified.map(w=>`
-              <div class="position-item" style="margin-bottom:6px;flex-direction:column;align-items:flex-start;gap:8px;">
-                <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
-                  <a href="https://polymarket.com/profile/${w.address}" target="_blank" style="text-decoration:none;flex:1;">
+              <div class="position-item" style="margin-bottom:6px;">
+                <div>
+                  <a href="https://polymarket.com/profile/${w.address}" target="_blank" style="text-decoration:none;">
                     <div style="font-size:12px;font-weight:500;color:var(--blue);">${(w.address||'').slice(0,10)}…${(w.address||'').slice(-6)}</div>
                     <div style="font-size:11px;color:var(--muted);">WR ${Math.round((w.win_rate||0)*100)}% · ${w.closed||0} closed</div>
                   </a>
-                  <div style="font-family:var(--mono);font-size:13px;font-weight:500;" class="${(w.pnl||0)>0?'pos':'neg'}">${fmt(w.pnl||0)}</div>
                 </div>
-                <div style="display:flex;gap:6px;width:100%;">
-                  <button onclick="addWatchFromScan('${w.address}','${(w.address||w.address).slice(0,8)}',this)" style="flex:1;padding:6px;background:var(--blue-dim);border:1px solid var(--blue);border-radius:var(--radius-sm);color:var(--blue);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--sans);">+ Watch</button>
-                  <button onclick="promoteWallet('${w.address}','${(w.address||'').slice(0,8)}','shadow',this)" style="flex:1;padding:6px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--sans);">+ Shadow</button>
-                  <button onclick="promoteWallet('${w.address}','${(w.address||'').slice(0,8)}','live',this)" style="flex:1;padding:6px;background:var(--green-dim);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--green);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--sans);">→ Live</button>
-                </div>
+                <div style="font-family:var(--mono);font-size:13px;font-weight:500;" class="${(w.pnl||0)>0?'pos':'neg'}">${fmt(w.pnl||0)}</div>
               </div>`).join('')}
           `:'<div style="font-size:12px;color:var(--muted);padding:8px 0;">No verified passers this scan</div>'}
-          ${h.network&&h.network.length>0?`
-            <div style="font-size:11px;font-weight:500;letter-spacing:0.8px;text-transform:uppercase;color:var(--blue);margin:10px 0 8px;">🌐 Network Passers</div>
-            ${h.network.map(w=>`
-              <div class="position-item" style="margin-bottom:6px;flex-direction:column;align-items:flex-start;gap:8px;">
-                <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
-                  <a href="https://polymarket.com/profile/${w.address}" target="_blank" style="text-decoration:none;flex:1;">
-                    <div style="font-size:12px;font-weight:500;color:var(--blue);">${(w.address||'').slice(0,10)}…${(w.address||'').slice(-6)}</div>
-                    <div style="font-size:11px;color:var(--muted);">WR ${Math.round((w.win_rate||0)*100)}% · ${w.shared||0} shared mkts</div>
-                  </a>
-                  <div style="font-family:var(--mono);font-size:13px;font-weight:500;" class="${(w.pnl||0)>0?'pos':'neg'}">${fmt(w.pnl||0)}</div>
-                </div>
-                <div style="display:flex;gap:6px;width:100%;">
-                  <button onclick="addWatchFromScan('${w.address}','${(w.address||w.address).slice(0,8)}',this)" style="flex:1;padding:6px;background:var(--blue-dim);border:1px solid var(--blue);border-radius:var(--radius-sm);color:var(--blue);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--sans);">+ Watch</button>
-                  <button onclick="promoteWallet('${w.address}','${(w.address||'').slice(0,8)}','shadow',this)" style="flex:1;padding:6px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--sans);">+ Shadow</button>
-                  <button onclick="promoteWallet('${w.address}','${(w.address||'').slice(0,8)}','live',this)" style="flex:1;padding:6px;background:var(--green-dim);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--green);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--sans);">→ Live</button>
-                </div>
-              </div>`).join('')}
-          `:''}
         </div>
       </div>`).join('');
   } catch(e) {
@@ -1255,18 +1328,121 @@ async function loadScanHistory(){
   }
 }
 
-async function runScanner(){
+/* ---- Screener Config ---- */
+let screenerCfgCache = null;
+
+async function loadScreenerConfig(){
+  try{
+    const r = await fetch('/api/screener-config');
+    const d = await r.json();
+    if(!d.ok) return;
+    screenerCfgCache = d;
+    populateScreenerInputs(d);
+  }catch(e){ console.error('loadScreenerConfig failed', e); }
+}
+
+function populateScreenerInputs(d){
+  const f = d.filters || {};
+  const ds = d.deep_screen || {};
+  const t2 = d.tier2_filters || {};
+  const disc = d.discovery || {};
+  const set = (id, val) => { const el = document.getElementById(id); if(el && val !== undefined) el.value = val; };
+  set('cfg-min-wr', Math.round((f.min_win_rate||0.6)*100));
+  set('cfg-min-closed', f.min_closed_markets||10);
+  set('cfg-max-two-sided', Math.round((f.max_two_sided_ratio||0.4)*100));
+  set('cfg-min-pnl', f.min_closed_pnl||200);
+  set('cfg-min-trades', f.min_trades_30d||10);
+  set('cfg-max-trades', f.max_trades_30d||5000);
+  set('cfg-max-days', f.max_days_since_trade||14);
+  set('cfg-n-markets', disc.n_markets||120);
+  set('cfg-n-deep', ds.n_deep||99999);
+  set('cfg-pages', ds.pages||5);
+  set('cfg-bucket-wr', Math.round((t2.min_bucket_wr||0.55)*100));
+  set('cfg-drawdown', t2.max_drawdown_ratio||5.0);
+  set('cfg-concentration', t2.min_concentration||0.25);
+  set('cfg-recent-trades', t2.min_recent_trades||5);
+}
+
+function getScreenerInputs(){
+  const g = id => parseFloat(document.getElementById(id)?.value||0);
+  return {
+    filters: {
+      min_win_rate: g('cfg-min-wr')/100,
+      min_closed_markets: g('cfg-min-closed'),
+      max_two_sided_ratio: g('cfg-max-two-sided')/100,
+      min_closed_pnl: g('cfg-min-pnl'),
+      min_trades_30d: g('cfg-min-trades'),
+      max_trades_30d: g('cfg-max-trades'),
+      max_days_since_trade: g('cfg-max-days'),
+    },
+    discovery: {
+      n_markets: g('cfg-n-markets'),
+    },
+    deep_screen: {
+      n_deep: g('cfg-n-deep'),
+      pages: g('cfg-pages'),
+    },
+    tier2_filters: {
+      min_bucket_wr: g('cfg-bucket-wr')/100,
+      max_drawdown_ratio: g('cfg-drawdown'),
+      min_concentration: g('cfg-concentration'),
+      min_recent_trades: g('cfg-recent-trades'),
+    }
+  };
+}
+
+async function saveScreenerConfig(saveAsDefault=false){
+  const msg = document.getElementById('screener-cfg-msg');
+  msg.style.color='var(--muted)'; msg.textContent='Saving…';
+  try{
+    const body = {...getScreenerInputs(), save_as_default: saveAsDefault};
+    const r = await fetch('/api/screener-config', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+    const d = await r.json();
+    if(d.ok){
+      msg.style.color='var(--green)';
+      msg.textContent = saveAsDefault ? '✓ Saved as default' : '✓ Settings saved';
+      screenerCfgCache = null;
+      await loadScreenerConfig();
+    } else {
+      msg.style.color='var(--red)'; msg.textContent='⚠️ '+(d.error||'Failed');
+    }
+  }catch(e){ msg.style.color='var(--red)'; msg.textContent='⚠️ Error saving'; }
+}
+
+function resetScreenerDefaults(){
+  if(screenerCfgCache && screenerCfgCache.defaults && Object.keys(screenerCfgCache.defaults).length > 0){
+    populateScreenerInputs(screenerCfgCache.defaults);
+  } else if(screenerCfgCache){
+    populateScreenerInputs(screenerCfgCache);
+  }
+  const msg = document.getElementById('screener-cfg-msg');
+  msg.style.color='var(--muted)'; msg.textContent='Restored defaults';
+  setTimeout(()=>{ msg.textContent=''; }, 2000);
+}
+
+async function runScannerWithConfig(){
   const btn=document.getElementById('scan-btn');
   const status=document.getElementById('scanner-status');
-  btn.disabled=true;btn.textContent='⏳ Pipeline running… (~30 min)';
+  // First save current settings
+  const msg = document.getElementById('screener-cfg-msg');
+  msg.style.color='var(--muted)'; msg.textContent='Saving settings…';
+  try{
+    const body = getScreenerInputs();
+    const r = await fetch('/api/screener-config', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+    const d = await r.json();
+    if(!d.ok){ msg.style.color='var(--red)'; msg.textContent='⚠️ Failed to save settings'; return; }
+    msg.style.color='var(--green)'; msg.textContent='✓ Settings saved';
+  }catch(e){ msg.style.color='var(--red)'; msg.textContent='⚠️ Error saving settings'; return; }
+
+  btn.disabled=true; btn.textContent='⏳ Pipeline running…';
   btn.style.opacity='0.6';
-  status.innerHTML='<div class="info-banner">🔄 Pipeline started. Results will update automatically when complete. You can close this tab — it runs in the background.</div>';
+  status.innerHTML='<div class="info-banner">🔄 Pipeline started with current settings. Results will update when complete. You can close this tab — it runs in the background.</div>';
   try{
     const r=await fetch('/api/run-scanner',{method:'POST'});
     const d=await r.json();
-    if(d.ok){status.innerHTML='<div class="live-banner">✅ Pipeline started successfully. Check back in ~30 minutes.</div>';}
-    else{status.innerHTML=`<div class="info-banner">⚠️ ${d.error||'Failed to start pipeline'}</div>`;btn.disabled=false;btn.textContent='⚡ Run Full Pipeline';btn.style.opacity='1';}
-  }catch(e){status.innerHTML='<div class="info-banner">⚠️ Could not connect to server</div>';btn.disabled=false;btn.textContent='⚡ Run Full Pipeline';btn.style.opacity='1';}
+    if(d.ok){status.innerHTML='<div class="live-banner">✅ Pipeline started. Check back in a few hours for results.</div>';}
+    else{status.innerHTML=`<div class="info-banner">⚠️ ${d.error||'Failed to start pipeline'}</div>`;btn.disabled=false;btn.textContent='⚡ Run with These Settings';btn.style.opacity='1';}
+  }catch(e){status.innerHTML='<div class="info-banner">⚠️ Could not connect to server</div>';btn.disabled=false;btn.textContent='⚡ Run with These Settings';btn.style.opacity='1';}
 }
 async function runNetwork(){
   const btn=document.getElementById('network-btn');
@@ -1298,11 +1474,72 @@ async function loadData(){
   }
 }
 loadTheme();
+/* ---- Version / Update ---- */
+async function checkForUpdates(){
+  const btn = document.getElementById('check-update-btn');
+  const status = document.getElementById('update-status');
+  const badge = document.getElementById('version-badge');
+  const current = document.getElementById('version-current');
+  const installBtn = document.getElementById('install-update-btn');
+  if(btn) { btn.textContent='Checking…'; btn.disabled=true; }
+  try{
+    const r = await fetch('/api/version');
+    const d = await r.json();
+    if(!d.ok) throw new Error(d.error||'Failed');
+    if(current) current.textContent = 'v' + (d.current||'?');
+    if(document.getElementById('about-version')) document.getElementById('about-version').textContent = 'DashView v' + (d.current||'?');
+    if(d.update_available){
+      if(badge){ badge.textContent='v'+d.latest+' available'; badge.style.background='var(--blue-dim)'; badge.style.color='var(--blue)'; }
+      if(status){ status.style.color='var(--blue)'; status.textContent='New version v'+d.latest+' is available!'; }
+      if(installBtn) installBtn.style.display='block';
+      // Show banner
+      const banner = document.getElementById('update-banner');
+      if(banner) banner.style.display='flex';
+      // Push notification
+      sendNotification('🆕 DashView Update Available', 'Version v'+d.latest+' is ready to install');
+    } else if(d.latest){
+      if(badge){ badge.textContent='Up to date'; badge.style.background='var(--green-dim)'; badge.style.color='var(--green)'; }
+      if(status){ status.style.color='var(--green)'; status.textContent='You are on the latest version.'; }
+      if(installBtn) installBtn.style.display='none';
+    } else {
+      if(badge){ badge.textContent='v'+(d.current||'?'); badge.style.background='var(--green-dim)'; badge.style.color='var(--green)'; }
+      if(status){ status.style.color='var(--green)'; status.textContent='✓ App is running the latest version.'; }
+    }
+  }catch(e){
+    if(status){ status.style.color='var(--red)'; status.textContent='Failed to check for updates.'; }
+  }finally{
+    if(btn){ btn.textContent='🔄 Check for Updates'; btn.disabled=false; }
+  }
+}
+
+async function installUpdate(){
+  const btn = document.getElementById('install-update-btn');
+  const status = document.getElementById('update-status');
+  if(!confirm('Install update now? DashView will restart automatically.')) return;
+  if(btn){ btn.disabled=true; btn.textContent='Installing…'; }
+  if(status){ status.style.color='var(--muted)'; status.textContent='Pulling latest code…'; }
+  try{
+    const r = await fetch('/api/update', {method:'POST'});
+    const d = await r.json();
+    if(d.ok){
+      if(status){ status.style.color='var(--green)'; status.textContent='✓ Update installed! Reloading in 5 seconds…'; }
+      setTimeout(()=>{ window.location.reload(); }, 5000);
+    } else {
+      if(status){ status.style.color='var(--red)'; status.textContent='⚠️ '+(d.error||'Update failed'); }
+      if(btn){ btn.disabled=false; btn.textContent='⬇ Install Update'; }
+    }
+  }catch(e){
+    if(status){ status.style.color='var(--muted)'; status.textContent='Restarting… reload in 5 seconds.'; }
+    setTimeout(()=>{ window.location.reload(); }, 5000);
+  }
+}
+
 loadData();
 loadNotifSettings();
 updateNotifButton();
 loadChart();
 loadScanHistory();
+checkForUpdates();
 setInterval(loadData,30000);
 setInterval(pollEvents,60000);
 setInterval(loadChart,300000);
@@ -1517,10 +1754,23 @@ pollEvents();
       <div class="screener-row"><span class="screener-label">Status</span><span class="screener-val" id="conn-status">—</span></div>
       <div class="screener-row" style="border-bottom:none;"><span class="screener-label">Last sync</span><span class="screener-val screener-time" id="last-sync">—</span></div>
     </div>
+    <p class="section-label">Updates</p>
+    <div class="bot-card" style="margin-bottom:10px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div>
+          <div style="font-size:14px;font-weight:500;">DashView</div>
+          <div style="font-size:11px;color:var(--muted);font-family:var(--mono);" id="version-current">Checking version…</div>
+        </div>
+        <div id="version-badge" style="font-size:11px;padding:3px 10px;border-radius:20px;background:var(--surface2);color:var(--muted);">—</div>
+      </div>
+      <div id="update-status" style="font-size:12px;color:var(--muted);margin-bottom:12px;"></div>
+      <button onclick="checkForUpdates()" id="check-update-btn" style="width:100%;padding:11px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:13px;font-weight:600;font-family:var(--sans);cursor:pointer;margin-bottom:8px;">🔄 Check for Updates</button>
+      <button onclick="installUpdate()" id="install-update-btn" style="width:100%;padding:11px;background:var(--blue-dim);border:1px solid var(--blue);border-radius:var(--radius-sm);color:var(--blue);font-size:13px;font-weight:600;font-family:var(--sans);cursor:pointer;display:none;">⬇ Install Update</button>
+    </div>
     <p class="section-label">About</p>
     <div class="bot-card">
-      <div style="font-size:14px;font-weight:500;margin-bottom:8px;">DashView v2.0</div>
-      <div style="font-size:12px;color:var(--muted);line-height:1.6;">Mobile dashboard for Polymarket shadow trading.<br>Built on top of the Atlas copy-trading bot.<br><br>Data refreshes every 30 seconds automatically.</div>
+      <div style="font-size:14px;font-weight:500;margin-bottom:8px;" id="about-version">DashView v2.3</div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.6;">Mobile dashboard for Polymarket copy-trading bots.<br>Built on top of the Atlas bot.<br><br>Data refreshes every 30 seconds automatically.</div>
     </div>
   </div>
 </div>

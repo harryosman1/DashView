@@ -295,6 +295,104 @@ def api_positions(trader):
     except Exception as e:
         return jsonify({"error": str(e)})
 
+@app.route("/api/screener-config", methods=["GET"])
+def api_screener_config_get():
+    try:
+        import yaml
+        yml_path = cfg.BOT_DIR / "scripts" / "pm-screen.yml"
+        if not yml_path.exists():
+            return jsonify({"ok": False, "error": "pm-screen.yml not found"}), 404
+        data = yaml.safe_load(yml_path.read_text()) or {}
+        f = data.get("filters", {})
+        d = data.get("discovery", {})
+        ds = data.get("deep_screen", {})
+        t2 = data.get("tier2_filters", {})
+
+        # Load defaults
+        defaults_path = cfg.DASHVIEW_HOME / "screener_defaults.json"
+        defaults = json.loads(defaults_path.read_text()) if defaults_path.exists() else {}
+
+        return jsonify({
+            "ok": True,
+            "filters": {
+                "min_win_rate": f.get("min_win_rate", 0.60),
+                "min_closed_markets": f.get("min_closed_markets", 10),
+                "max_two_sided_ratio": f.get("max_two_sided_ratio", 0.40),
+                "min_trades_30d": f.get("min_trades_30d", 10),
+                "max_trades_30d": f.get("max_trades_30d", 5000),
+                "min_median_usd": f.get("min_median_usd", 10.0),
+                "max_median_usd": f.get("max_median_usd", 5000.0),
+                "max_days_since_trade": f.get("max_days_since_trade", 14),
+                "min_closed_pnl": f.get("min_closed_pnl", 200.0),
+            },
+            "discovery": {
+                "n_markets": d.get("n_markets", 120),
+            },
+            "deep_screen": {
+                "n_deep": ds.get("n_deep", 99999),
+                "pages": ds.get("pages", 5),
+            },
+            "tier2_filters": {
+                "min_bucket_wr": t2.get("min_bucket_wr", 0.55),
+                "min_concentration": t2.get("min_concentration", 0.25),
+                "min_hold_days": t2.get("min_hold_days", 1.0),
+                "max_drawdown_ratio": t2.get("max_drawdown_ratio", 5.0),
+                "max_size_cv": t2.get("max_size_cv", 2.0),
+                "min_recent_trades": t2.get("min_recent_trades", 5),
+            },
+            "defaults": defaults,
+        })
+    except Exception as e:
+        logger.error(f"screener_config_get failed: {e}")
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+@app.route("/api/screener-config", methods=["POST"])
+def api_screener_config_save():
+    try:
+        from flask import request
+        import yaml
+        data = request.get_json(force=True, silent=True) or {}
+        save_as_default = data.get("save_as_default", False)
+        yml_path = cfg.BOT_DIR / "scripts" / "pm-screen.yml"
+
+        # Load existing yml to preserve comments structure
+        existing = yaml.safe_load(yml_path.read_text()) if yml_path.exists() else {}
+
+        f = data.get("filters", {})
+        d = data.get("discovery", {})
+        ds = data.get("deep_screen", {})
+        t2 = data.get("tier2_filters", {})
+
+        if f:
+            existing.setdefault("filters", {}).update({
+                k: v for k, v in f.items() if v is not None
+            })
+        if d:
+            existing.setdefault("discovery", {}).update({
+                k: v for k, v in d.items() if v is not None
+            })
+        if ds:
+            existing.setdefault("deep_screen", {}).update({
+                k: v for k, v in ds.items() if v is not None
+            })
+        if t2:
+            existing.setdefault("tier2_filters", {}).update({
+                k: v for k, v in t2.items() if v is not None
+            })
+
+        yml_path.write_text(yaml.dump(existing, default_flow_style=False))
+        logger.info(f"screener config saved (save_as_default={save_as_default})")
+
+        # Save defaults if requested
+        if save_as_default:
+            defaults_path = cfg.DASHVIEW_HOME / "screener_defaults.json"
+            defaults_path.write_text(json.dumps(data, indent=2))
+
+        return jsonify({"ok": True, "saved_as_default": save_as_default})
+    except Exception as e:
+        logger.error(f"screener_config_save failed: {e}")
+        return jsonify({"ok": False, "error": str(e)}), 500
+
 @app.route("/api/run-scanner", methods=["POST"])
 def api_run_scanner():
     try:
@@ -360,6 +458,7 @@ def api_screener_history():
                         "passers": m.get("deep_screen", {}).get("passers", 0),
                         "verified_count": len(verified),
                         "network_count": len(network),
+                        "config_used": m.get("config_used", {}),
                         "verified": [{"address": w.get("address",""), "win_rate": w.get("win_rate",0), "pnl": w.get("pnl",0), "closed": w.get("closed",0)} for w in verified[:10]],
                         "network": [{"address": w.get("address",""), "win_rate": w.get("win_rate",0), "pnl": w.get("pnl",0), "shared": w.get("shared_markets",0)} for w in network[:10]],
                     }
@@ -420,6 +519,63 @@ def api_promote():
         return jsonify({"ok": False, "error": "Invalid mode"})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)})
+
+@app.route("/api/version")
+def api_version():
+    try:
+        version_path = cfg.DASHVIEW_HOME / "VERSION"
+        current = version_path.read_text().strip() if version_path.exists() else "unknown"
+        # Check GitHub for latest version
+        import httpx
+        latest = None
+        try:
+            r = httpx.get("https://api.github.com/repos/harryosman1/DashView/releases/latest",
+                         timeout=5, headers={"Accept": "application/vnd.github.v3+json"})
+            if r.status_code == 200:
+                latest = r.json().get("tag_name", "").lstrip("v")
+        except Exception:
+            pass
+        update_available = False
+        if latest and current != "unknown":
+            try:
+                cv = [int(x) for x in current.split(".")]
+                lv = [int(x) for x in latest.split(".")]
+                update_available = lv > cv
+            except Exception:
+                update_available = latest != current
+        return jsonify({
+            "ok": True,
+            "current": current,
+            "latest": latest,
+            "update_available": update_available,
+        })
+    except Exception as e:
+        logger.error(f"api_version failed: {e}")
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+@app.route("/api/update", methods=["POST"])
+def api_update():
+    try:
+        import subprocess
+        dashview_home = str(cfg.DASHVIEW_HOME)
+        # Check it's a git repo
+        result = subprocess.run(["git", "-C", dashview_home, "status"],
+                               capture_output=True, text=True)
+        if result.returncode != 0:
+            return jsonify({"ok": False, "error": "Not a git repository — cannot auto-update"}), 400
+        # Pull latest
+        pull = subprocess.run(["git", "-C", dashview_home, "pull", "origin", "main"],
+                             capture_output=True, text=True, timeout=30)
+        if pull.returncode != 0:
+            return jsonify({"ok": False, "error": pull.stderr.strip()}), 500
+        output = pull.stdout.strip()
+        logger.info(f"git pull output: {output}")
+        # Restart dashview after a short delay
+        subprocess.Popen(["bash", "-c", "sleep 2 && systemctl restart dashview"])
+        return jsonify({"ok": True, "output": output, "restarting": True})
+    except Exception as e:
+        logger.error(f"api_update failed: {e}")
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 @app.route("/api/health")
 def api_health():
