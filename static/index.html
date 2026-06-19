@@ -637,6 +637,19 @@ function renderScreener(screener){
 function closePositions(){
   document.getElementById('page-positions').style.display='none';
 }
+function openSizedView(){
+  document.getElementById('page-sizedview').style.display='block';
+}
+function closeSizedView(){
+  document.getElementById('page-sizedview').style.display='none';
+}
+function openSimulation(){
+  document.getElementById('page-simulation').style.display='block';
+  loadSimulation();
+}
+function closeSimulation(){
+  document.getElementById('page-simulation').style.display='none';
+}
 async function openPositions(trader){
   const page=document.getElementById('page-positions');
   page.style.display='block';
@@ -1019,7 +1032,6 @@ async function loadChart(){
     renderDailyList();
     renderSizedChart();
     renderSizedDailyList();
-    loadSimulation();
     if(data.copied_wl){
       const w=data.copied_wl;
       document.getElementById('wl-wins').textContent=w.wins||0;
@@ -1729,16 +1741,6 @@ pollEvents();
     <div id="daily-pnl-list"></div>
     <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:12px;">Shadow P&L based on $100 base sizing · started Jun 13 2026</div>
 
-    <p class="section-label">At Your $500 Sizing</p>
-    <div class="bot-card" style="margin-bottom:10px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-        <div>
-          <div style="font-size:12px;color:var(--muted);">$7.50/bet · 1.5% risk</div>
-        </div>
-        <div style="font-family:var(--mono);font-size:20px;font-weight:600;" id="sized-total" class="pos">—</div>
-      </div>
-      <canvas id="sized-chart" style="width:100%;height:160px;"></canvas>
-    </div>
     <p class="section-label">Copied Trades W/L</p>
     <div class="bot-card" style="margin-bottom:10px;">
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;">
@@ -1767,7 +1769,43 @@ pollEvents();
       </div>
       <div style="font-size:11px;color:var(--muted);margin-top:10px;text-align:center;">Based on trades your bot would have copied</div>
     </div>
-    <p class="section-label">Realistic Simulation</p>
+
+    <p class="section-label">Tools</p>
+    <button onclick="openSizedView()" style="width:100%;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:14px;font-weight:600;font-family:var(--sans);cursor:pointer;margin-bottom:10px;text-align:left;display:flex;align-items:center;justify-content:space-between;">
+      <span>📊 View at $500 Sizing</span><span style="color:var(--muted);">›</span>
+    </button>
+    <button onclick="openSimulation()" style="width:100%;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:14px;font-weight:600;font-family:var(--sans);cursor:pointer;text-align:left;display:flex;align-items:center;justify-content:space-between;">
+      <span>🧪 Run Simulation</span><span style="color:var(--muted);">›</span>
+    </button>
+  </div>
+</div>
+
+<div id="page-sizedview" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg);z-index:200;overflow-y:auto;">
+  <div style="position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--border);padding:16px 20px;display:flex;align-items:center;gap:12px;">
+    <button onclick="closeSizedView()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:0;line-height:1;">←</button>
+    <div style="font-size:16px;font-weight:600;">At Your $500 Sizing</div>
+  </div>
+  <div style="padding:16px 16px 80px;">
+    <div class="bot-card" style="margin-bottom:10px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div>
+          <div style="font-size:12px;color:var(--muted);">$7.50/bet · 1.5% risk</div>
+        </div>
+        <div style="font-family:var(--mono);font-size:20px;font-weight:600;" id="sized-total" class="pos">—</div>
+      </div>
+      <canvas id="sized-chart" style="width:100%;height:160px;"></canvas>
+    </div>
+    <p class="section-label">Daily at $500 Sizing</p>
+    <div id="sized-daily-list"></div>
+  </div>
+</div>
+
+<div id="page-simulation" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg);z-index:200;overflow-y:auto;">
+  <div style="position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--border);padding:16px 20px;display:flex;align-items:center;gap:12px;">
+    <button onclick="closeSimulation()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:0;line-height:1;">←</button>
+    <div style="font-size:16px;font-weight:600;">Realistic Simulation</div>
+  </div>
+  <div style="padding:16px 16px 80px;">
     <div class="bot-card" style="margin-bottom:10px;padding:12px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
         <span style="font-size:12px;color:var(--muted);">Select wallets to simulate</span>
@@ -1801,8 +1839,6 @@ pollEvents();
     </div>
     <p class="section-label">Per Wallet Breakdown</p>
     <div id="sim-traders"></div>
-    <p class="section-label">Daily at $500 Sizing</p>
-    <div id="sized-daily-list"></div>
   </div>
 </div>
 
