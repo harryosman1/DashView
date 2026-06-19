@@ -6,4 +6,4 @@ __pycache__/
 vapid_private.pem
 watchlist.json
 memory.md
-static/*.bak*
+static/*.bak**
