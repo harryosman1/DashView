@@ -3,3 +3,5 @@ user_settings.json
 server.py.live
 *.pyc
 __pycache__/
+vapid_private.pem
+watchlist.json

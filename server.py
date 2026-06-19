@@ -1271,31 +1271,60 @@ def api_events():
         events = []
 
         if log_path.exists():
-            with open(log_path) as f:
-                for line in f:
-                    try:
-                        d = json.loads(line)
-                    except Exception as e:
-                        continue
-                    ts = int(d.get("timestamp", 0))
-                    if ts <= since:
-                        continue
-                    decision = d.get("decision", "")
-                    trader = d.get("trader", "")
-                    question = d.get("question", "")
-                    outcome = d.get("outcome", "")
+            # Only scan the tail of the log — file is 90k+ lines, reading it all every
+            # 60s poll is far too slow. Recent events are always near the end.
+            MAX_TAIL_LINES = 2000
+            with open(log_path, "rb") as f:
+                f.seek(0, 2)
+                file_size = f.tell()
+                block = 8192
+                data = b""
+                lines_found = 0
+                pos = file_size
+                while pos > 0 and lines_found < MAX_TAIL_LINES:
+                    read_size = min(block, pos)
+                    pos -= read_size
+                    f.seek(pos)
+                    data = f.read(read_size) + data
+                    lines_found = data.count(b"\n")
+                tail_lines = data.decode("utf-8", errors="ignore").splitlines()[-MAX_TAIL_LINES:]
 
-                    if decision == "copy":
-                        events.append({"type": "copied", "timestamp": ts, "trader": trader, "question": question, "outcome": outcome, "price": d.get("their_price", 0)})
-                        _price = d.get("their_price", 0)
-                        send_push_notification(f"⚡ Trade Copied — {trader}", f"{outcome} @ ${_price:.2f} {question}", tag="copied")
-                    elif decision == "shadow_resolution":
-                        pnl = d.get("pnl", d.get("our_pnl", 0)) or 0
-                        if abs(pnl) > 50:
-                            events.append({"type": "big_win" if pnl > 0 else "big_loss", "timestamp": ts, "trader": trader, "question": question, "outcome": outcome, "pnl": round(pnl, 2)})
-                            _icon = "🟢 Big Win" if pnl > 0 else "🔴 Big Loss"
-                            _sign = "+" if pnl > 0 else ""
-                            send_push_notification(f"{_icon} — {trader}", f"{question} {_sign}{pnl:.0f}", tag="resolution")
+            push_queue = []
+            for line in tail_lines:
+                try:
+                    d = json.loads(line)
+                except Exception:
+                    continue
+                ts = int(d.get("timestamp", 0))
+                if ts <= since:
+                    continue
+                decision = d.get("decision", "")
+                trader = d.get("trader", "")
+                question = d.get("question", "")
+                outcome = d.get("outcome", "")
+
+                if decision == "copy":
+                    events.append({"type": "copied", "timestamp": ts, "trader": trader, "question": question, "outcome": outcome, "price": d.get("their_price", 0)})
+                    _price = d.get("their_price", 0)
+                    push_queue.append((f"⚡ Trade Copied — {trader}", f"{outcome} @ ${_price:.2f} {question}", "copied"))
+                elif decision == "shadow_resolution":
+                    pnl = d.get("pnl", d.get("our_pnl", 0)) or 0
+                    if abs(pnl) > 50:
+                        events.append({"type": "big_win" if pnl > 0 else "big_loss", "timestamp": ts, "trader": trader, "question": question, "outcome": outcome, "pnl": round(pnl, 2)})
+                        _icon = "🟢 Big Win" if pnl > 0 else "🔴 Big Loss"
+                        _sign = "+" if pnl > 0 else ""
+                        push_queue.append((f"{_icon} — {trader}", f"{question} {_sign}{pnl:.0f}", "resolution"))
+
+            # Send pushes in a background thread so the HTTP response never blocks on them
+            if push_queue:
+                import threading
+                def _fire_pushes(items):
+                    for title, body, tag in items:
+                        try:
+                            send_push_notification(title, body, tag=tag)
+                        except Exception:
+                            pass
+                threading.Thread(target=_fire_pushes, args=(push_queue,), daemon=True).start()
 
         # Check bot status
         try:
