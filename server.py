@@ -38,6 +38,9 @@ class Config:
     # Bot
     BOT_NAME      = os.environ.get("BOT_NAME", "Atlas")
 
+    # Domain (used for displayed config + push notification claims)
+    DOMAIN        = os.environ.get("DOMAIN", "YOUR_DOMAIN.duckdns.org")
+
 cfg = Config()
 
 sys.path.insert(0, str(cfg.BOT_DIR))
@@ -943,7 +946,7 @@ def api_config_get():
             return jsonify({
                 "bot_name": os.environ.get("BOT_NAME", "Atlas"),
                 "bot_dir": str(BOT_DIR),
-                "domain": "YOUR_DOMAIN.duckdns.org",
+                "domain": cfg.DOMAIN,
                 "port": 443,
             })
         return jsonify(json.loads(cfg_path.read_text()))
@@ -1177,7 +1180,7 @@ def send_push_notification(title, body, tag="dashview"):
                     subscription_info=sub,
                     data=json.dumps({"title": title, "body": body, "tag": tag}),
                     vapid_private_key=VAPID_PRIVATE_KEY_PATH,
-                    vapid_claims={"sub": "mailto:admin@YOUR_DOMAIN.duckdns.org"}
+                    vapid_claims={"sub": f"mailto:admin@{cfg.DOMAIN}"}
                 )
             except WebPushException as e:
                 if e.response and e.response.status_code in (404, 410):
