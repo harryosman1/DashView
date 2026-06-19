@@ -5,3 +5,5 @@ server.py.live
 __pycache__/
 vapid_private.pem
 watchlist.json
+memory.md
+static/*.bak

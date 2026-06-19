@@ -676,6 +676,8 @@ async function openPositions(trader){
     cl.innerHTML=clHtml;
   }catch(e){
     document.getElementById('pos-open-list').innerHTML='<div class="empty-state"><div class="empty-icon">⚠️</div>Failed to load positions</div>';
+    console.error('openPositions error:', e);
+    document.getElementById('pos-counts').textContent='Error: ' + e.message;
   }
 }
 // Notification settings
@@ -1864,7 +1866,7 @@ pollEvents();
         </div>
         <div class="screener-row" style="padding:12px 0;">
           <div><div style="font-size:13px;font-weight:500;">🆕 Update Available</div><div style="font-size:11px;color:var(--muted);">Alert when new DashView version is ready</div></div>
-          <label class="toggle"><input type="checkbox" id="notif-update-available" checked onchange="saveNotifSettings()"><span class="slider"></span></label
+          <label class="toggle"><input type="checkbox" id="notif-update-available" checked onchange="saveNotifSettings()"><span class="slider"></span></label>
         </div>
       </div>
     </div>

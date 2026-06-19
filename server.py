@@ -1224,7 +1224,8 @@ def api_push_unsubscribe():
 def api_demote():
     try:
         import yaml as _yaml
-        data = request.get_json()
+        from flask import request as _req
+        data = _req.get_json()
         address = (data.get("address") or "").lower().strip()
         if not address:
             return jsonify({"ok": False, "error": "No address provided"})
@@ -1382,7 +1383,7 @@ def run_https():
     context.load_cert_chain(cfg.SSL_CERT, cfg.SSL_KEY)
     domain = os.environ.get("DOMAIN", "your-domain")
     logger.info(f"DashView HTTPS running at https://{domain}:{args.port}")
-    app.run(host=args.host, port=args.port, ssl_context=context, debug=False)
+    app.run(host=args.host, port=args.port, ssl_context=context, debug=False, threaded=True)
 
 if __name__ == "__main__":
     import ssl as _ssl
@@ -1398,12 +1399,12 @@ if __name__ == "__main__":
             context.load_cert_chain(cert, key)
             domain = os.environ.get("DOMAIN", "your-domain")
             logger.info(f"DashView HTTPS running at https://{domain}:{args.port}")
-            app.run(host=args.host, port=args.port, ssl_context=context, debug=False)
+            app.run(host=args.host, port=args.port, ssl_context=context, debug=False, threaded=True)
         except Exception as e:
             logger.error(f"HTTPS failed: {e} — falling back to HTTP on port 8080")
-            app.run(host=args.host, port=8080, debug=False)
+            app.run(host=args.host, port=8080, debug=False, threaded=True)
     else:
         logger.warning(f"SSL cert not found at {cert} — running HTTP on port 8080")
         logger.warning("Set SSL_CERT_PATH and SSL_KEY_PATH env vars for HTTPS")
-        app.run(host=args.host, port=8080, debug=False)
+        app.run(host=args.host, port=8080, debug=False, threaded=True)
 
