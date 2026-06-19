@@ -939,11 +939,39 @@ function updateCalculator(){
 let chartData = [];
 let chartCanvas = null;
 
+function renderSimWalletCheckboxes(){
+  const c=document.getElementById('sim-wallet-checkboxes');
+  if(!c) return;
+  const wallets=window.allShadowWallets||[];
+  if(wallets.length===0){c.innerHTML='<div style="font-size:12px;color:var(--muted);">No wallets found.</div>';return;}
+  c.innerHTML=wallets.map(w=>{
+    const safe=escapeAttr(w.name);
+    return `<label style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px;cursor:pointer;">
+      <input type="checkbox" class="sim-wallet-cb" value="${safe}" checked style="width:16px;height:16px;accent-color:var(--green);cursor:pointer;">
+      <span>${escapeHtml(w.name)}</span>
+    </label>`;
+  }).join('');
+}
+function toggleAllSimWallets(){
+  const boxes=document.querySelectorAll('.sim-wallet-cb');
+  const allChecked=Array.from(boxes).every(b=>b.checked);
+  boxes.forEach(b=>b.checked=!allChecked);
+  document.getElementById('sim-select-toggle').textContent=allChecked?'Select all':'Deselect all';
+}
+function getSelectedSimWallets(){
+  return Array.from(document.querySelectorAll('.sim-wallet-cb')).filter(b=>b.checked).map(b=>b.value);
+}
 async function loadSimulation(){
   try{
     const simCap=document.getElementById('sim-capital')?.value||500;
     const simRisk=document.getElementById('sim-risk')?.value||1.5;
-    const r=await fetch(`/api/simulation?capital=${simCap}&risk=${simRisk}`);
+    const selected=getSelectedSimWallets();
+    if(selected.length===0){
+      document.getElementById('sim-banner').textContent='⚠️ Select at least one wallet';
+      return;
+    }
+    const walletsParam=encodeURIComponent(selected.join(','));
+    const r=await fetch(`/api/simulation?capital=${simCap}&risk=${simRisk}&wallets=${walletsParam}`);
     const d=await r.json();
     if(d.error){
       document.getElementById('sim-banner').textContent='⚠️ '+d.error;
@@ -1579,6 +1607,8 @@ async function runNetwork(){
 async function loadData(){
   try{
     const res=await fetch('/api/data');const data=await res.json();
+    window.allShadowWallets=data.shadow_pnl||[];
+    renderSimWalletCheckboxes();
     renderWallets(data.shadow_pnl);
     renderLive(data.live_pnl);
     renderSizing(data.sizing);
@@ -1738,6 +1768,13 @@ pollEvents();
       <div style="font-size:11px;color:var(--muted);margin-top:10px;text-align:center;">Based on trades your bot would have copied</div>
     </div>
     <p class="section-label">Realistic Simulation</p>
+    <div class="bot-card" style="margin-bottom:10px;padding:12px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <span style="font-size:12px;color:var(--muted);">Select wallets to simulate</span>
+        <span style="font-size:11px;cursor:pointer;color:var(--blue);" onclick="toggleAllSimWallets()" id="sim-select-toggle">Deselect all</span>
+      </div>
+      <div id="sim-wallet-checkboxes"></div>
+    </div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
       <span style="font-size:16px;font-weight:500;color:var(--muted);">$</span>
       <input type="number" id="sim-capital" value="500" min="100" max="1000000" step="100"

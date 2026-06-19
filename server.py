@@ -1028,6 +1028,10 @@ def api_simulation():
             except Exception as e:
                 pass
 
+        selected_wallets = None
+        if request.args.get("wallets"):
+            selected_wallets = set(w.strip() for w in request.args.get("wallets").split(",") if w.strip())
+
         bet_size = round(capital * risk_pct, 2)
         max_positions = int(capital / bet_size)
 
@@ -1037,7 +1041,8 @@ def api_simulation():
                 try:
                     d = json.loads(line)
                     if d.get("decision") in ("copy", "shadow_resolution"):
-                        events.append(d)
+                        if selected_wallets is None or d.get("trader", "unknown") in selected_wallets:
+                            events.append(d)
                 except Exception as e:
                     pass
 
