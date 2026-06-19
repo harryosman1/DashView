@@ -266,6 +266,35 @@ input:checked+.slider:before{transform:translateX(18px);background:var(--green)}
       <div id="find-msg" class="find-msg"></div>
       <div id="find-result"></div>
     </div>
+
+    <p class="section-label">Tools</p>
+    <button onclick="openScanResults()" style="width:100%;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:14px;font-weight:600;font-family:var(--sans);cursor:pointer;margin-bottom:10px;text-align:left;display:flex;align-items:center;justify-content:space-between;">
+      <span>⭐ Scan Results</span><span style="color:var(--muted);">›</span>
+    </button>
+    <button onclick="openScreenerWatchlist()" style="width:100%;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:14px;font-weight:600;font-family:var(--sans);cursor:pointer;margin-bottom:10px;text-align:left;display:flex;align-items:center;justify-content:space-between;">
+      <span>👁 Watchlist</span><span style="color:var(--muted);">›</span>
+    </button>
+    <button onclick="openScanHistory()" style="width:100%;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:14px;font-weight:600;font-family:var(--sans);cursor:pointer;margin-bottom:10px;text-align:left;display:flex;align-items:center;justify-content:space-between;">
+      <span>📋 Scan History</span><span style="color:var(--muted);">›</span>
+    </button>
+    <button onclick="openScreenerSettings()" style="width:100%;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:14px;font-weight:600;font-family:var(--sans);cursor:pointer;text-align:left;display:flex;align-items:center;justify-content:space-between;">
+      <span>⚙️ Screener Settings</span><span style="color:var(--muted);">›</span>
+    </button>
+
+    <p class="section-label">Run Scanner</p>
+    <div id="scanner-status" style="margin-bottom:10px;"></div>
+    <button onclick="runScannerWithConfig()" id="scan-btn" style="width:100%;padding:14px;background:var(--green-dim);border:1px solid var(--green);border-radius:var(--radius);color:var(--green);font-size:14px;font-weight:600;font-family:var(--sans);cursor:pointer;letter-spacing:0.3px;-webkit-tap-highlight-color:transparent;">⚡ Run with These Settings</button>
+    <button onclick="runNetwork()" id="network-btn" style="width:100%;padding:14px;background:var(--blue-dim);border:1px solid var(--blue);border-radius:var(--radius);color:var(--blue);font-size:14px;font-weight:600;font-family:var(--sans);cursor:pointer;letter-spacing:0.3px;margin-top:10px;-webkit-tap-highlight-color:transparent;">🌐 Run Network Follow</button>
+  </div>
+
+</div>
+
+<div id="page-scanresults" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg);z-index:200;overflow-y:auto;">
+  <div style="position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--border);padding:16px 20px;display:flex;align-items:center;gap:12px;">
+    <button onclick="closeScanResults()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:0;line-height:1;">←</button>
+    <div style="font-size:16px;font-weight:600;">Scan Results</div>
+  </div>
+  <div style="padding:16px 16px 80px;">
     <p class="section-label">⭐ Tier 2 Passers (Priority)</p>
     <div id="tier2-list"><div class="empty-state"><div class="empty-icon">⭐</div>Loading…</div></div>
     <p class="section-label">✓ Tier 1 Only (Shadow with Caution)</p>
@@ -274,10 +303,15 @@ input:checked+.slider:before{transform:translateX(18px);background:var(--green)}
     <div id="screener-list"><div class="empty-state"><div class="empty-icon">🔍</div>Loading…</div></div>
     <p class="section-label">Network Follow Passers</p>
     <div id="network-list"><div class="empty-state"><div class="empty-icon">🌐</div>Loading…</div></div>
-    <p class="section-label">Scan History</p>
-    <div id="scan-history-list"><div class="empty-state"><div class="empty-icon">📋</div>Loading history…</div></div>
+  </div>
+</div>
 
-    <p class="section-label">Watchlist</p>
+<div id="page-screenerwatchlist" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg);z-index:200;overflow-y:auto;">
+  <div style="position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--border);padding:16px 20px;display:flex;align-items:center;gap:12px;">
+    <button onclick="closeScreenerWatchlist()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:0;line-height:1;">←</button>
+    <div style="font-size:16px;font-weight:600;">Watchlist</div>
+  </div>
+  <div style="padding:16px 16px 80px;">
     <div style="margin-bottom:10px;">
       <div style="display:flex;gap:8px;margin-bottom:10px;">
         <input type="text" id="screener-wl-address" placeholder="0x… wallet address" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:9px 12px;font-size:12px;font-family:var(--mono);color:var(--text);outline:none;">
@@ -293,7 +327,25 @@ input:checked+.slider:before{transform:translateX(18px);background:var(--green)}
       </label>
     </div>
     <div id="watchlist-cards"><div class="empty-state" style="padding:24px;"><div class="empty-icon" style="font-size:24px;">👁</div>No wallets watching yet</div></div>
-    <p class="section-label">Screener Settings</p>
+  </div>
+</div>
+
+<div id="page-scanhistory" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg);z-index:200;overflow-y:auto;">
+  <div style="position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--border);padding:16px 20px;display:flex;align-items:center;gap:12px;">
+    <button onclick="closeScanHistory()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:0;line-height:1;">←</button>
+    <div style="font-size:16px;font-weight:600;">Scan History</div>
+  </div>
+  <div style="padding:16px 16px 80px;">
+    <div id="scan-history-list"><div class="empty-state"><div class="empty-icon">📋</div>Loading history…</div></div>
+  </div>
+</div>
+
+<div id="page-screenersettings" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg);z-index:200;overflow-y:auto;">
+  <div style="position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--border);padding:16px 20px;display:flex;align-items:center;gap:12px;">
+    <button onclick="closeScreenerSettings()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:0;line-height:1;">←</button>
+    <div style="font-size:16px;font-weight:600;">Screener Settings</div>
+  </div>
+  <div style="padding:16px 16px 80px;">
     <div class="screener-card" id="screener-settings-card" style="margin-bottom:10px;">
       <div style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.5;">Adjust thresholds before running. Hit <b>Default</b> to restore saved defaults.</div>
 
@@ -371,13 +423,7 @@ input:checked+.slider:before{transform:translateX(18px);background:var(--green)}
       </div>
       <div id="screener-cfg-msg" style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px;min-height:16px;"></div>
     </div>
-
-    <p class="section-label">Run Scanner</p>
-    <div id="scanner-status" style="margin-bottom:10px;"></div>
-    <button onclick="runScannerWithConfig()" id="scan-btn" style="width:100%;padding:14px;background:var(--green-dim);border:1px solid var(--green);border-radius:var(--radius);color:var(--green);font-size:14px;font-weight:600;font-family:var(--sans);cursor:pointer;letter-spacing:0.3px;-webkit-tap-highlight-color:transparent;">⚡ Run with These Settings</button>
-    <button onclick="runNetwork()" id="network-btn" style="width:100%;padding:14px;background:var(--blue-dim);border:1px solid var(--blue);border-radius:var(--radius);color:var(--blue);font-size:14px;font-weight:600;font-family:var(--sans);cursor:pointer;letter-spacing:0.3px;margin-top:10px;-webkit-tap-highlight-color:transparent;">🌐 Run Network Follow</button>
   </div>
-
 </div>
 
 <!-- Bottom Nav — 4 tabs -->
@@ -508,7 +554,7 @@ const INITIALS=n=>n.split(/[_\s]/).map(w=>w[0]||'').join('').toUpperCase().slice
 function fmt(v){if(v===0)return'$0';const abs=Math.abs(v);const s=abs>=1000?`$${(abs/1000).toFixed(1)}K`:`$${abs.toFixed(0)}`;return v<0?`-${s}`:`+${s}`;}
 function colorClass(v){if(v>0)return'pos';if(v<0)return'neg';return'neu';}
 function timeAgo(ts){const d=Math.floor((Date.now()/1000)-ts);if(d<60)return`${d}s ago`;if(d<3600)return`${Math.floor(d/60)}m ago`;if(d<86400)return`${Math.floor(d/3600)}h ago`;return`${Math.floor(d/86400)}d ago`;}
-function showPage(name){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));document.getElementById(`page-${name}`).classList.add('active');document.getElementById(`nav-${name}`).classList.add('active');if(name==='chart'){loadChart();}if(name==='settings'){loadConfig();}if(name==='screener'){loadScanHistory();loadWatchlist();try{loadScreenerConfig();}catch(e){console.error('screener config failed',e);}}}
+function showPage(name){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));document.getElementById(`page-${name}`).classList.add('active');document.getElementById(`nav-${name}`).classList.add('active');if(name==='chart'){loadChart();}if(name==='settings'){loadConfig();}}
 
 function renderWallets(wallets){
   const el=document.getElementById('wallet-list');
@@ -649,6 +695,33 @@ function openSimulation(){
 }
 function closeSimulation(){
   document.getElementById('page-simulation').style.display='none';
+}
+function openScanResults(){
+  document.getElementById('page-scanresults').style.display='block';
+}
+function closeScanResults(){
+  document.getElementById('page-scanresults').style.display='none';
+}
+function openScreenerWatchlist(){
+  document.getElementById('page-screenerwatchlist').style.display='block';
+  loadWatchlist();
+}
+function closeScreenerWatchlist(){
+  document.getElementById('page-screenerwatchlist').style.display='none';
+}
+function openScanHistory(){
+  document.getElementById('page-scanhistory').style.display='block';
+  loadScanHistory();
+}
+function closeScanHistory(){
+  document.getElementById('page-scanhistory').style.display='none';
+}
+function openScreenerSettings(){
+  document.getElementById('page-screenersettings').style.display='block';
+  try{loadScreenerConfig();}catch(e){console.error('screener config failed',e);}
+}
+function closeScreenerSettings(){
+  document.getElementById('page-screenersettings').style.display='none';
 }
 async function openPositions(trader){
   const page=document.getElementById('page-positions');
@@ -1842,24 +1915,6 @@ pollEvents();
   </div>
 </div>
 
-<!-- WATCHLIST PAGE -->
-<div class="page" id="page-watchlist" style="padding-bottom:100px;">
-  <div style="padding:16px;">
-    <p class="section-label">Add Wallet</p>
-    <div class="bot-card" style="margin-bottom:10px;">
-      <div style="margin-bottom:10px;">
-        <input type="text" id="wl-address" placeholder="0x… wallet address" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;font-size:13px;font-family:var(--mono);color:var(--text);outline:none;margin-bottom:8px;">
-        <input type="text" id="wl-label" placeholder="Label (optional)" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;font-size:13px;font-family:var(--sans);color:var(--text);outline:none;">
-      </div>
-      <button onclick="addToWatchlist()" style="width:100%;padding:12px;background:var(--blue-dim);border:1px solid var(--blue);border-radius:var(--radius-sm);color:var(--blue);font-size:13px;font-weight:600;font-family:var(--sans);cursor:pointer;">+ Add to Watchlist</button>
-      <div id="wl-msg" style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px;"></div>
-    </div>
-    <p class="section-label">Watching</p>
-    <div id="watchlist-cards"><div class="empty-state"><div class="empty-icon">👁</div>No wallets yet. Add a wallet address above to start tracking.</div></div>
-  </div>
-</div>
-
-<!-- CONFIG PAGE -->
 <div class="page" id="page-config" style="padding-bottom:100px;">
   <div style="padding:16px;">
     <p class="section-label">Bot Configuration</p>
