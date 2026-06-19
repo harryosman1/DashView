@@ -2,6 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<link rel="manifest" href="/manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="DashView">
+<link rel="apple-touch-icon" href="/icon.png">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -516,10 +521,15 @@ function renderWallets(wallets){
   document.getElementById('sum-combined').innerHTML=`<span class="${colorClass(tc)}">${fmt(tc)}</span>`;
   document.getElementById('sum-resolved').innerHTML=`<span class="${colorClass(tr)}">${fmt(tr)}</span>`;
   document.getElementById('sum-positions').textContent=tp;
-  el.innerHTML=wallets.map((w,i)=>{
+  const sorted=[...wallets].sort((a,b)=>{
+    if(a.active&&!b.active) return -1;
+    if(!a.active&&b.active) return 1;
+    return b.combined-a.combined;
+  });
+  el.innerHTML=sorted.map((w,i)=>{
     const av=AVATARS[i%AVATARS.length];const init=INITIALS(w.name);
-    if(!w.active)return`<div class="wallet-card inactive"><div class="wallet-top"><div class="wallet-left"><div class="wallet-avatar ${av}">${init}</div><div><div class="wallet-name">${w.name}</div><div class="wallet-status">watching — no activity yet</div></div></div><div class="wallet-combined neu">—</div></div></div>`;
-    return`<div class="wallet-card" onclick="openPositions('${w.name}')" style="cursor:pointer;"><div class="wallet-top"><div class="wallet-left"><div class="wallet-avatar ${av}">${init}</div><div><div class="wallet-name">${w.name}</div><div class="wallet-status">${w.open_positions} open positions · tap for detail</div></div></div><div class="wallet-combined ${colorClass(w.combined)}">${fmt(w.combined)}</div></div><div class="wallet-grid"><div class="wallet-stat"><div class="wallet-stat-val ${colorClass(w.resolved)}">${fmt(w.resolved)}</div><div class="wallet-stat-lbl">Resolved</div></div><div class="wallet-stat"><div class="wallet-stat-val ${colorClass(w.unrealized)}">${fmt(w.unrealized)}</div><div class="wallet-stat-lbl">Unrealized</div></div><div class="wallet-stat"><div class="wallet-stat-val">${w.open_positions}</div><div class="wallet-stat-lbl">Positions</div></div></div></div>`;
+    if(!w.active)return`<div class="wallet-card inactive"><div class="wallet-top"><div class="wallet-left"><div class="wallet-avatar ${av}">${init}</div><div><div class="wallet-name">${w.name}</div><div class="wallet-status">watching — no activity yet</div></div></div><div class="wallet-combined neu">—</div></div><div style="display:flex;gap:6px;margin-top:10px;"><button onclick="demoteWallet('${w.address||w.name}','${w.name}',this)" style="flex:1;padding:8px;background:var(--red-dim);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--red);font-size:11px;font-weight:600;font-family:var(--sans);cursor:pointer;">✕ Remove</button></div></div>`;
+    return`<div class="wallet-card"><div class="wallet-top"><div class="wallet-left"><div class="wallet-avatar ${av}">${init}</div><div><div class="wallet-name">${w.name}</div><div class="wallet-status">${w.open_positions} open positions</div></div></div><div class="wallet-combined ${colorClass(w.combined)}">${fmt(w.combined)}</div></div><div class="wallet-grid" onclick="openPositions('${w.name}')" style="cursor:pointer;"><div class="wallet-stat"><div class="wallet-stat-val ${colorClass(w.resolved)}">${fmt(w.resolved)}</div><div class="wallet-stat-lbl">Resolved</div></div><div class="wallet-stat"><div class="wallet-stat-val ${colorClass(w.unrealized)}">${fmt(w.unrealized)}</div><div class="wallet-stat-lbl">Unrealized</div></div><div class="wallet-stat"><div class="wallet-stat-val">${w.open_positions}</div><div class="wallet-stat-lbl">Positions</div></div></div><div style="display:flex;gap:6px;margin-top:10px;"><button onclick="openPositions('${w.name}')" style="flex:2;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);font-size:11px;font-weight:600;font-family:var(--sans);cursor:pointer;">📊 Positions</button><button onclick="demoteWallet('${w.address||w.name}','${w.name}',this)" style="flex:1;padding:8px;background:var(--red-dim);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--red);font-size:11px;font-weight:600;font-family:var(--sans);cursor:pointer;">✕ Remove</button></div></div>`;
   }).join('');
 }
 
@@ -722,7 +732,7 @@ function loadTheme(){
     if(t) t.checked=false;
   }
 }
-function saveNotifSettings(){
+async function saveNotifSettings(){
   const settings = {
     big_win: document.getElementById('notif-big-win').checked,
     big_loss: document.getElementById('notif-big-loss').checked,
@@ -730,19 +740,29 @@ function saveNotifSettings(){
     new_trade: document.getElementById('notif-new-trade').checked,
     bot_offline: document.getElementById('notif-bot-offline').checked,
     live_trade: document.getElementById('notif-live-trade').checked,
+    scan_complete: document.getElementById('notif-scan-complete') ? document.getElementById('notif-scan-complete').checked : true,
+    update_available: document.getElementById('notif-update-available') ? document.getElementById('notif-update-available').checked : true,
   };
-  localStorage.setItem('dashview_notif', JSON.stringify(settings));
+  _notifSettingsCache = settings;
+  try {
+    await fetch('/api/settings', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({notif: settings})});
+  } catch(e){}
 }
 
-function loadNotifSettings(){
+async function loadNotifSettings(){
   try {
-    const s = JSON.parse(localStorage.getItem('dashview_notif') || '{}');
+    const r = await fetch('/api/settings');
+    const d = await r.json();
+    const s = d.settings?.notif || {};
     if(s.big_win !== undefined) document.getElementById('notif-big-win').checked = s.big_win;
     if(s.big_loss !== undefined) document.getElementById('notif-big-loss').checked = s.big_loss;
     if(s.copied !== undefined) document.getElementById('notif-copied').checked = s.copied;
     if(s.new_trade !== undefined) document.getElementById('notif-new-trade').checked = s.new_trade;
     if(s.bot_offline !== undefined) document.getElementById('notif-bot-offline').checked = s.bot_offline;
     if(s.live_trade !== undefined) document.getElementById('notif-live-trade').checked = s.live_trade;
+    if(s.scan_complete !== undefined && document.getElementById('notif-scan-complete')) document.getElementById('notif-scan-complete').checked = s.scan_complete;
+    if(s.update_available !== undefined && document.getElementById('notif-update-available')) document.getElementById('notif-update-available').checked = s.update_available;
+    _notifSettingsCache = s;
   } catch(e){}
 }
 
@@ -753,16 +773,74 @@ async function requestNotificationPermission(){
     status.textContent = '⚠️ Notifications not supported on this browser';
     return;
   }
-  const perm = await Notification.requestPermission();
-  if(perm === 'granted'){
-    btn.textContent = '✅ Notifications Enabled';
-    btn.style.background = 'var(--green-dim)';
-    btn.style.borderColor = 'var(--green)';
-    btn.style.color = 'var(--green)';
-    status.textContent = 'You will receive alerts when events occur';
-    new Notification('DashView', {body: 'Notifications are now enabled! 🎯', icon: '/icon.png'});
-  } else {
+  let perm;
+  try {
+    perm = await Notification.requestPermission();
+  } catch(e){
+    status.textContent = '⚠️ Permission request failed: ' + e.message;
+    return;
+  }
+
+  if(perm !== 'granted'){
     status.textContent = '⚠️ Permission denied — enable in iPhone Settings > Safari';
+    return;
+  }
+
+  btn.textContent = '✅ Notifications Enabled';
+  btn.style.background = 'var(--green-dim)';
+  btn.style.borderColor = 'var(--green)';
+  btn.style.color = 'var(--green)';
+  status.textContent = 'Setting up push notifications…';
+
+  fetch('/api/settings', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({notif_enabled: true})}).catch(()=>{});
+
+  // Subscribe to Web Push — each step isolated so we can see exactly where it fails
+  if(!('serviceWorker' in navigator)){
+    status.textContent = '⚠️ Service workers not supported on this browser';
+    return;
+  }
+  if(!('PushManager' in window)){
+    status.textContent = '⚠️ Push not supported — make sure app is added to Home Screen (iOS 16.4+)';
+    return;
+  }
+
+  let reg;
+  try {
+    reg = await navigator.serviceWorker.ready;
+  } catch(e){
+    status.textContent = '⚠️ Service worker not ready: ' + e.message;
+    return;
+  }
+
+  let vapidKey;
+  try {
+    const keyResp = await fetch('/api/push/vapid-public-key');
+    const keyData = await keyResp.json();
+    vapidKey = Uint8Array.from(atob(keyData.key.replace(/-/g,'+').replace(/_/g,'/')), c => c.charCodeAt(0));
+  } catch(e){
+    status.textContent = '⚠️ Failed to fetch VAPID key: ' + e.message;
+    return;
+  }
+
+  let sub;
+  try {
+    sub = await reg.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: vapidKey});
+  } catch(e){
+    status.textContent = '⚠️ Push subscribe failed: ' + e.message;
+    return;
+  }
+
+  try {
+    const r = await fetch('/api/push/subscribe', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(sub.toJSON())});
+    const d = await r.json();
+    if(d.ok){
+      status.textContent = '✅ Push notifications active — works even when app is closed';
+      try { reg.showNotification('DashView', {body: 'Notifications are now enabled! 🎯', icon: '/icon.png'}); } catch(e){}
+    } else {
+      status.textContent = '⚠️ Server rejected subscription: ' + (d.error||'unknown');
+    }
+  } catch(e){
+    status.textContent = '⚠️ Failed to register with server: ' + e.message;
   }
 }
 
@@ -772,9 +850,15 @@ function sendNotification(title, body){
   }
 }
 
-function getNotifSettings(){
-  try { return JSON.parse(localStorage.getItem('dashview_notif') || '{}'); } catch(e){ return {}; }
+let _notifSettingsCache = {};
+async function _loadNotifCache(){
+  try {
+    const r = await fetch('/api/settings');
+    const d = await r.json();
+    _notifSettingsCache = d.settings?.notif || {};
+  } catch(e){ _notifSettingsCache = {}; }
 }
+function getNotifSettings(){ return _notifSettingsCache; }
 
 let lastEventTime = Math.floor(Date.now()/1000) - 300; // last 5 min on load
 let lastBotStatus = true;
@@ -800,6 +884,9 @@ async function pollEvents(){
         lastBotStatus = e.running;
       } else if(e.type === 'live_status' && s.live_trade !== false && e.pnl !== 0){
         sendNotification('📈 Live Trade Update', `W:${e.wins} L:${e.losses} P&L: $${e.pnl?.toFixed(0)}`);
+      } else if(e.type==='scan_complete' && s.scan_complete !== false){
+        const msg = e.tier2>0 ? `${e.tier2} Tier 2 + ${e.tier1} Tier 1 passers found!` : e.tier1>0 ? `${e.tier1} Tier 1 passers` : 'No new passers this scan';
+        sendNotification('🔍 Screener Scan Complete', msg);
       }
     }
   } catch(e){}
@@ -1124,6 +1211,36 @@ function renderDailyList(){
         <span style="color:#4d8fff;">● Live: <span class="${colorClass(p.live_cumulative||0)}">${fmt(p.live_cumulative||0)}</span></span>
       </div>
     </div>`).join('');
+}
+
+async function demoteWallet(address, name, btn){
+  if(!confirm(`Remove ${name} from shadow roster?
+
+This will stop the bot from tracking this wallet.`)) return;
+  btn.disabled = true;
+  btn.textContent = '…';
+  try{
+    const r = await fetch('/api/demote', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({address, name})
+    });
+    const d = await r.json();
+    if(d.ok){
+      btn.textContent = '✓ Removed';
+      btn.style.background = 'var(--surface2)';
+      btn.style.borderColor = 'var(--border)';
+      btn.style.color = 'var(--muted)';
+      setTimeout(()=>{ loadData(); }, 1500);
+    } else {
+      btn.textContent = d.error || 'Failed';
+      btn.style.color = 'var(--red)';
+      btn.disabled = false;
+    }
+  } catch(e){
+    btn.textContent = 'Error';
+    btn.disabled = false;
+  }
 }
 
 async function addWatchFromScan(address, label, btn){
@@ -1496,7 +1613,7 @@ async function checkForUpdates(){
       const banner = document.getElementById('update-banner');
       if(banner) banner.style.display='flex';
       // Push notification
-      sendNotification('🆕 DashView Update Available', 'Version v'+d.latest+' is ready to install');
+      if(getNotifSettings().update_available !== false) sendNotification('🆕 DashView Update Available', 'Version v'+d.latest+' is ready to install');
     } else if(d.latest){
       if(badge){ badge.textContent='Up to date'; badge.style.background='var(--green-dim)'; badge.style.color='var(--green)'; }
       if(status){ status.style.color='var(--green)'; status.textContent='You are on the latest version.'; }
@@ -1536,10 +1653,34 @@ async function installUpdate(){
 
 loadData();
 loadNotifSettings();
+_loadNotifCache();
 updateNotifButton();
+
+// Register service worker for Web Push
+if('serviceWorker' in navigator && 'PushManager' in window){
+  navigator.serviceWorker.register('/sw.js').then(async reg => {
+    // Check if already subscribed
+    const existing = await reg.pushManager.getSubscription();
+    if(existing){
+      // Re-send subscription to server in case it changed
+      await fetch('/api/push/subscribe', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(existing.toJSON())}).catch(()=>{});
+    }
+  }).catch(e => console.error('SW registration failed:', e));
+}
+// Auto-request notification permission if previously enabled
+if('Notification' in window && Notification.permission === 'default'){
+  fetch('/api/settings').then(r=>r.json()).then(d=>{
+    if(d.settings?.notif_enabled){
+      Notification.requestPermission().then(p=>{
+        if(p==='granted') updateNotifButton();
+      });
+    }
+  }).catch(()=>{});
+}
 loadChart();
 loadScanHistory();
 checkForUpdates();
+setInterval(checkForUpdates, 3600000);
 setInterval(loadData,30000);
 setInterval(pollEvents,60000);
 setInterval(loadChart,300000);
@@ -1716,6 +1857,14 @@ pollEvents();
         <div class="screener-row" style="padding:12px 0;border-bottom:none;">
           <div><div style="font-size:13px;font-weight:500;">📈 Live Trade</div><div style="font-size:11px;color:var(--muted);">Real order placed when live trading active</div></div>
           <label class="toggle"><input type="checkbox" id="notif-live-trade" checked onchange="saveNotifSettings()"><span class="slider"></span></label>
+        </div>
+        <div class="screener-row" style="padding:12px 0;">
+          <div><div style="font-size:13px;font-weight:500;">🔍 Scan Complete</div><div style="font-size:11px;color:var(--muted);">Alert when screener pipeline finishes</div></div>
+          <label class="toggle"><input type="checkbox" id="notif-scan-complete" checked onchange="saveNotifSettings()"><span class="slider"></span></label>
+        </div>
+        <div class="screener-row" style="padding:12px 0;">
+          <div><div style="font-size:13px;font-weight:500;">🆕 Update Available</div><div style="font-size:11px;color:var(--muted);">Alert when new DashView version is ready</div></div>
+          <label class="toggle"><input type="checkbox" id="notif-update-available" checked onchange="saveNotifSettings()"><span class="slider"></span></label
         </div>
       </div>
     </div>

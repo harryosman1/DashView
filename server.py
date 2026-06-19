@@ -77,10 +77,19 @@ def get_shadow_pnl():
         result = []
         for name in all_names:
             s = shadow.get(name)
+            addr = ""
+            try:
+                all_traders = ShadowList().list_all()
+                for t in all_traders:
+                    if t.name == name:
+                        addr = t.address
+                        break
+            except Exception:
+                pass
             if s:
-                result.append({"name": name, "combined": round(s.combined_hypothetical_pnl,2), "resolved": round(s.resolution_realized_pnl,2), "unrealized": round(s.hypothetical_unrealized_pnl,2), "open_positions": s.open_positions_count, "active": True})
+                result.append({"name": name, "address": addr, "combined": round(s.combined_hypothetical_pnl,2), "resolved": round(s.resolution_realized_pnl,2), "unrealized": round(s.hypothetical_unrealized_pnl,2), "open_positions": s.open_positions_count, "active": True})
             else:
-                result.append({"name": name, "combined": 0, "resolved": 0, "unrealized": 0, "open_positions": 0, "active": False})
+                result.append({"name": name, "address": addr, "combined": 0, "resolved": 0, "unrealized": 0, "open_positions": 0, "active": False})
         return result
     except Exception as e:
         logger.error(f"get_shadow_pnl failed: {e}")
@@ -500,6 +509,14 @@ def api_promote():
                     return jsonify({"ok": False, "error": "Already in shadow list"})
             shadow.append({"name": name, "address": address, "tier": "shadow"})
             shadow_list_path.write_text(yaml.dump(shadow, default_flow_style=False))
+            from datetime import datetime, timezone
+            st_path = cfg.BOT_DIR / ".tradingbot" / "shadow_traders.json"
+            st_path.parent.mkdir(parents=True, exist_ok=True)
+            traders = json.loads(st_path.read_text()) if st_path.exists() else []
+            if not any(t.get("address","").lower() == address for t in traders):
+                traders.append({"address": address, "name": name, "added_date": datetime.now(timezone.utc).isoformat(), "source_screen_id": "dashview_promote", "active": True, "activity_status": None, "notes": "Added via DashView promote button."})
+                st_path.write_text(json.dumps(traders, indent=2))
+            logger.info(f"Promoted {name} ({address}) to shadow")
             return jsonify({"ok": True, "message": f"Added {name} to shadow list"})
 
         elif mode == "live":
@@ -598,6 +615,17 @@ def api_health():
     if not all_ok:
         logger.warning(f"Health check failed: {[k for k,v in checks.items() if not v]}")
     return jsonify({"ok": all_ok, "checks": checks}), 200 if all_ok else 503
+
+@app.route("/manifest.json")
+def manifest():
+    return app.send_static_file("manifest.json")
+
+@app.route("/sw.js")
+def service_worker():
+    resp = app.send_static_file("sw.js")
+    resp.headers["Service-Worker-Allowed"] = "/"
+    resp.headers["Cache-Control"] = "no-cache"
+    return resp
 
 @app.route("/")
 def index():
@@ -1099,28 +1127,138 @@ def api_simulation():
         return jsonify({"error": str(e)})
 
 
-if __name__ == "__main__":
-    import ssl as _ssl
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--host", default="0.0.0.0")
-    parser.add_argument("--port", type=int, default=443)
-    args = parser.parse_args()
-    cert = cfg.SSL_CERT
-    key  = cfg.SSL_KEY
-    if Path(cert).exists() and Path(key).exists():
-        try:
-            context = _ssl.SSLContext(_ssl.PROTOCOL_TLS_SERVER)
-            context.load_cert_chain(cert, key)
-            domain = os.environ.get("DOMAIN", "your-domain")
-            logger.info(f"DashView HTTPS running at https://{domain}:{args.port}")
-            app.run(host=args.host, port=args.port, ssl_context=context, debug=False)
-        except Exception as e:
-            logger.error(f"HTTPS failed: {e} — falling back to HTTP on port 8080")
-            app.run(host=args.host, port=8080, debug=False)
-    else:
-        logger.warning(f"SSL cert not found at {cert} — running HTTP on port 8080")
-        logger.warning("Set SSL_CERT_PATH and SSL_KEY_PATH env vars for HTTPS")
-        app.run(host=args.host, port=8080, debug=False)
+@app.route("/api/settings", methods=["GET", "POST"])
+def api_settings():
+    try:
+        from flask import request as _req
+        settings_path = cfg.DASHVIEW_HOME / "user_settings.json"
+        if _req.method == "GET":
+            if settings_path.exists():
+                return jsonify({"ok": True, "settings": json.loads(settings_path.read_text())})
+            return jsonify({"ok": True, "settings": {}})
+        else:
+            data = _req.get_json()
+            existing = json.loads(settings_path.read_text()) if settings_path.exists() else {}
+            existing.update(data)
+            settings_path.write_text(json.dumps(existing, indent=2))
+            return jsonify({"ok": True})
+    except Exception as e:
+        logger.error(f"api_settings failed: {e}")
+        return jsonify({"ok": False, "error": str(e)})
+
+VAPID_PUBLIC_KEY = "BDkcs3R5oXiS2y2skKXavkd4MAKFAFSbPJOTJXE21w3il5W1xjXqbJrVhkub2R0u1ZHquXAYsYagUtqzJo-z1_0"
+VAPID_PRIVATE_KEY_PATH = "/opt/dashview/vapid_private.pem"
+PUSH_SUBS_PATH = cfg.DASHVIEW_HOME / "push_subscriptions.json"
+
+def load_push_subs():
+    try:
+        if PUSH_SUBS_PATH.exists():
+            return json.loads(PUSH_SUBS_PATH.read_text())
+    except Exception:
+        pass
+    return []
+
+def save_push_subs(subs):
+    PUSH_SUBS_PATH.write_text(json.dumps(subs, indent=2))
+
+def send_push_notification(title, body, tag="dashview"):
+    try:
+        from pywebpush import webpush, WebPushException
+        subs = load_push_subs()
+        dead = []
+        for sub in subs:
+            try:
+                webpush(
+                    subscription_info=sub,
+                    data=json.dumps({"title": title, "body": body, "tag": tag}),
+                    vapid_private_key=VAPID_PRIVATE_KEY_PATH,
+                    vapid_claims={"sub": "mailto:admin@YOUR_DOMAIN.duckdns.org"}
+                )
+            except WebPushException as e:
+                if e.response and e.response.status_code in (404, 410):
+                    dead.append(sub)
+                logger.warning(f"Push failed: {e}")
+            except Exception as e:
+                logger.warning(f"Push error: {e}")
+        if dead:
+            subs = [s for s in subs if s not in dead]
+            save_push_subs(subs)
+    except Exception as e:
+        logger.error(f"send_push_notification failed: {e}")
+
+@app.route("/api/push/vapid-public-key")
+def api_vapid_key():
+    return jsonify({"ok": True, "key": VAPID_PUBLIC_KEY})
+
+@app.route("/api/push/subscribe", methods=["POST"])
+def api_push_subscribe():
+    try:
+        from flask import request as _req
+        sub = _req.get_json()
+        if not sub or "endpoint" not in sub:
+            return jsonify({"ok": False, "error": "Invalid subscription"})
+        subs = load_push_subs()
+        if not any(s.get("endpoint") == sub["endpoint"] for s in subs):
+            subs.append(sub)
+            save_push_subs(subs)
+            logger.info(f"New push subscription: {sub['endpoint'][:50]}...")
+        return jsonify({"ok": True})
+    except Exception as e:
+        logger.error(f"push subscribe failed: {e}")
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.route("/api/push/unsubscribe", methods=["POST"])
+def api_push_unsubscribe():
+    try:
+        from flask import request as _req
+        data = _req.get_json()
+        endpoint = data.get("endpoint", "")
+        subs = load_push_subs()
+        subs = [s for s in subs if s.get("endpoint") != endpoint]
+        save_push_subs(subs)
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.route("/api/demote", methods=["POST"])
+def api_demote():
+    try:
+        import yaml as _yaml
+        data = request.get_json()
+        address = (data.get("address") or "").lower().strip()
+        if not address:
+            return jsonify({"ok": False, "error": "No address provided"})
+        removed_from = []
+        shadow_list_path = cfg.BOT_DIR / "config" / "shadow_list.yaml"
+        if shadow_list_path.exists():
+            shadow = _yaml.safe_load(shadow_list_path.read_text()) or []
+            new_shadow = [w for w in shadow if w.get("address","").lower() != address]
+            if len(new_shadow) < len(shadow):
+                shadow_list_path.write_text(_yaml.dump(new_shadow, default_flow_style=False))
+                removed_from.append("shadow_list.yaml")
+        st_path = cfg.BOT_DIR / ".tradingbot" / "shadow_traders.json"
+        if st_path.exists():
+            traders = json.loads(st_path.read_text())
+            new_traders = [t for t in traders if t.get("address","").lower() != address]
+            if len(new_traders) < len(traders):
+                st_path.write_text(json.dumps(new_traders, indent=2))
+                removed_from.append("shadow_traders.json")
+        roster_path = cfg.BOT_DIR / "config" / "roster.yaml"
+        if roster_path.exists():
+            roster = _yaml.safe_load(roster_path.read_text()) or []
+            if isinstance(roster, list):
+                new_roster = [w for w in roster if w.get("address","").lower() != address]
+                if len(new_roster) < len(roster):
+                    roster_path.write_text(_yaml.dump(new_roster, default_flow_style=False))
+                    removed_from.append("roster.yaml")
+        if removed_from:
+            logger.info(f"Demoted {address} from {removed_from}")
+            return jsonify({"ok": True, "message": f"Removed from {', '.join(removed_from)}"})
+        else:
+            return jsonify({"ok": False, "error": "Wallet not found in any list"})
+    except Exception as e:
+        logger.error(f"Demote failed: {e}")
+        return jsonify({"ok": False, "error": str(e)})
 
 @app.route("/api/events")
 def api_events():
@@ -1149,10 +1287,15 @@ def api_events():
 
                     if decision == "copy":
                         events.append({"type": "copied", "timestamp": ts, "trader": trader, "question": question, "outcome": outcome, "price": d.get("their_price", 0)})
+                        _price = d.get("their_price", 0)
+                        send_push_notification(f"⚡ Trade Copied — {trader}", f"{outcome} @ ${_price:.2f} {question}", tag="copied")
                     elif decision == "shadow_resolution":
                         pnl = d.get("pnl", d.get("our_pnl", 0)) or 0
                         if abs(pnl) > 50:
                             events.append({"type": "big_win" if pnl > 0 else "big_loss", "timestamp": ts, "trader": trader, "question": question, "outcome": outcome, "pnl": round(pnl, 2)})
+                            _icon = "🟢 Big Win" if pnl > 0 else "🔴 Big Loss"
+                            _sign = "+" if pnl > 0 else ""
+                            send_push_notification(f"{_icon} — {trader}", f"{question} {_sign}{pnl:.0f}", tag="resolution")
 
         # Check bot status
         try:
@@ -1172,6 +1315,28 @@ def api_events():
         except Exception as e:
             pass
 
+        # Check if pipeline scan completed recently
+        try:
+            import re, datetime
+            pipeline_log = Path("/tmp/screen-v3/pipeline.log")
+            if pipeline_log.exists():
+                log_text = pipeline_log.read_text()
+                matches = re.findall(r"Pipeline complete: (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)", log_text)
+                if matches:
+                    last_complete = matches[-1]
+                    dt = datetime.datetime.strptime(last_complete, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.timezone.utc)
+                    ts = int(dt.timestamp())
+                    if ts > since:
+                        t2_matches = re.findall(r"TIER 2 PASS\s+:\s+(\d+)", log_text)
+                        t1_matches = re.findall(r"TIER 1 PASS\s+:\s+(\d+)", log_text)
+                        t2_count = int(t2_matches[-1]) if t2_matches else 0
+                        t1_count = int(t1_matches[-1]) if t1_matches else 0
+                        events.append({"type": "scan_complete", "timestamp": ts, "tier2": t2_count, "tier1": t1_count})
+                        msg = f"{t2_count} Tier 2 + {t1_count} Tier 1 passers found!" if t2_count > 0 else f"{t1_count} Tier 1 passers found" if t1_count > 0 else "No new passers this scan"
+                        send_push_notification("🔍 Screener Scan Complete", msg, tag="scan")
+        except Exception:
+            pass
+
         return jsonify({"events": events[-50:], "server_time": int(time.time())})
     except Exception as e:
         return jsonify({"events": [], "error": str(e)})
@@ -1189,4 +1354,27 @@ def run_https():
     domain = os.environ.get("DOMAIN", "your-domain")
     logger.info(f"DashView HTTPS running at https://{domain}:{args.port}")
     app.run(host=args.host, port=args.port, ssl_context=context, debug=False)
+
+if __name__ == "__main__":
+    import ssl as _ssl
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--host", default="0.0.0.0")
+    parser.add_argument("--port", type=int, default=443)
+    args = parser.parse_args()
+    cert = cfg.SSL_CERT
+    key  = cfg.SSL_KEY
+    if Path(cert).exists() and Path(key).exists():
+        try:
+            context = _ssl.SSLContext(_ssl.PROTOCOL_TLS_SERVER)
+            context.load_cert_chain(cert, key)
+            domain = os.environ.get("DOMAIN", "your-domain")
+            logger.info(f"DashView HTTPS running at https://{domain}:{args.port}")
+            app.run(host=args.host, port=args.port, ssl_context=context, debug=False)
+        except Exception as e:
+            logger.error(f"HTTPS failed: {e} — falling back to HTTP on port 8080")
+            app.run(host=args.host, port=8080, debug=False)
+    else:
+        logger.warning(f"SSL cert not found at {cert} — running HTTP on port 8080")
+        logger.warning("Set SSL_CERT_PATH and SSL_KEY_PATH env vars for HTTPS")
+        app.run(host=args.host, port=8080, debug=False)
 
