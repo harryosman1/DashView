@@ -1,18 +1,5 @@
-# Personal config files - never commit these
-config.json
-watchlist.json
-*.log
-
-# Python
-__pycache__/
-*.pyc
-.venv/
-
-# SSL certificates - never commit these
-*.pem
-*.key
-
-# OS
-.DS_Store
-memory.md
+push_subscriptions.json
+user_settings.json
 server.py.live
+*.pyc
+__pycache__/
