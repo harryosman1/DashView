@@ -680,6 +680,37 @@ function renderScreener(screener){
   else{nl.innerHTML='<div class="empty-state"><div class="empty-icon">🌐</div>No network passers yet. Run the scanner below.</div>';}
 }
 
+function showConfirm(message){
+  return new Promise((resolve) => {
+    let overlay = document.getElementById('confirm-overlay');
+    if(!overlay){
+      overlay = document.createElement('div');
+      overlay.id = 'confirm-overlay';
+      overlay.style.cssText = 'display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:9999;align-items:center;justify-content:center;padding:24px;';
+      overlay.innerHTML = `
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;max-width:340px;width:100%;">
+          <div id="confirm-msg" style="font-size:14px;color:var(--text);line-height:1.5;margin-bottom:18px;white-space:pre-wrap;"></div>
+          <div style="display:flex;gap:8px;">
+            <button id="confirm-cancel" style="flex:1;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:13px;font-weight:600;font-family:var(--sans);cursor:pointer;">Cancel</button>
+            <button id="confirm-ok" style="flex:1;padding:10px;background:var(--blue-dim);border:1px solid var(--blue);border-radius:var(--radius-sm);color:var(--blue);font-size:13px;font-weight:600;font-family:var(--sans);cursor:pointer;">OK</button>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+    }
+    document.getElementById('confirm-msg').textContent = message;
+    overlay.style.display = 'flex';
+    const okBtn = document.getElementById('confirm-ok');
+    const cancelBtn = document.getElementById('confirm-cancel');
+    const cleanup = (result) => {
+      overlay.style.display = 'none';
+      okBtn.onclick = null;
+      cancelBtn.onclick = null;
+      resolve(result);
+    };
+    okBtn.onclick = () => cleanup(true);
+    cancelBtn.onclick = () => cleanup(false);
+  });
+}
 function closePositions(){
   document.getElementById('page-positions').style.display='none';
 }
@@ -1329,9 +1360,7 @@ function renderDailyList(){
 }
 
 async function demoteWallet(address, name, btn){
-  if(!confirm(`Remove ${name} from shadow roster?
-
-This will stop the bot from tracking this wallet.`)) return;
+  if(!(await showConfirm(`Remove ${name} from shadow roster?\n\nThis will stop the bot from tracking this wallet.`))) return;
   btn.disabled = true;
   btn.textContent = '…';
   try{
@@ -1359,7 +1388,7 @@ This will stop the bot from tracking this wallet.`)) return;
 }
 
 async function addWatchFromScan(address, label, btn){
-  if(!confirm('Add '+address.slice(0,10)+'… to Watchlist?')) return;
+  if(!(await showConfirm('Add '+address.slice(0,10)+'… to Watchlist?'))) return;
   btn.disabled=true; btn.textContent='…';
   try{
     const r=await fetch('/api/watchlist',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'add',address,label})});
@@ -1370,7 +1399,7 @@ async function addWatchFromScan(address, label, btn){
 }
 async function promoteWallet(address, name, mode, btn){
   const label = mode === 'shadow' ? 'Shadow' : 'Live';
-  const confirmed = confirm(`Add ${address.slice(0,10)}… to ${label} roster?\n\nThis will update your bot config immediately.`);
+  const confirmed = await showConfirm(`Add ${address.slice(0,10)}… to ${label} roster?\n\nThis will update your bot config immediately.`);
   if(!confirmed) return;
   btn.disabled = true;
   btn.textContent = '…';
@@ -1434,7 +1463,7 @@ async function addToWatchlist(){
 }
 
 async function removeFromWatchlist(address){
-  if(!confirm('Remove this wallet from watchlist?')) return;
+  if(!(await showConfirm('Remove this wallet from watchlist?'))) return;
   await fetch('/api/watchlist', {
     method:'POST',
     headers:{'Content-Type':'application/json'},
@@ -1456,33 +1485,29 @@ async function loadWatchlist(){
     }
     // Show basic cards first
     el.innerHTML = wallets.map(function(w){
-      var card = document.createElement('div');
-      card.className = 'wallet-card';
-      card.style.marginBottom = '10px';
       var label = w.label || w.address.slice(0,10);
       var addr = w.address;
+      var addrAttr = escapeAttr(addr);
       var lbl8 = w.label || w.address.slice(0,8);
-      card.innerHTML = [
+      var lblAttr = escapeAttr(lbl8);
+      return [
+        '<div class="wallet-card" style="margin-bottom:10px;">',
         '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">',
         '<div>',
         '<div style="font-size:14px;font-weight:500;">' + escapeHtml(label) + '</div>',
         '<div style="font-size:11px;color:var(--muted);font-family:var(--mono);">' + escapeHtml(addr.slice(0,14)) + '&hellip;</div>',
         '</div>',
-        '<button class="remove-wl-btn" data-addr="' + escapeHtml(addr) + '" style="background:var(--red-dim);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--red);font-size:11px;padding:4px 10px;cursor:pointer;font-family:var(--sans);">Remove</button>',
+        '<button onclick="removeFromWatchlist(\'' + addrAttr + '\')" style="background:var(--red-dim);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--red);font-size:11px;padding:4px 10px;cursor:pointer;font-family:var(--sans);">Remove</button>',
         '</div>',
         '<div id="wl-stats-' + addr.slice(2,10) + '" style="font-size:12px;color:var(--muted);">Loading stats&hellip;</div>',
         '<div style="display:flex;gap:6px;margin-top:10px;">',
         '<a href="https://polymarket.com/profile/' + escapeHtml(addr) + '" target="_blank" style="flex:1;text-align:center;padding:6px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--blue);font-size:11px;font-weight:500;text-decoration:none;">View Profile</a>',
-        '<button class="watch-wl-btn" data-addr="' + escapeHtml(addr) + '" data-lbl="' + escapeHtml(lbl8) + '" style="flex:1;padding:6px;background:var(--blue-dim);border:1px solid var(--blue);border-radius:var(--radius-sm);color:var(--blue);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--sans);">+ Watch</button>',
-        '<button class="shadow-wl-btn" data-addr="' + escapeHtml(addr) + '" data-lbl="' + escapeHtml(lbl8) + '" style="flex:1;padding:6px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--sans);">+ Shadow</button>',
-        '<button class="live-wl-btn" data-addr="' + escapeHtml(addr) + '" data-lbl="' + escapeHtml(lbl8) + '" style="flex:1;padding:6px;background:var(--green-dim);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--green);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--sans);">&#x2192; Live</button>',
+        '<button onclick="addWatchFromScan(\'' + addrAttr + '\',\'' + lblAttr + '\',this)" style="flex:1;padding:6px;background:var(--blue-dim);border:1px solid var(--blue);border-radius:var(--radius-sm);color:var(--blue);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--sans);">+ Watch</button>',
+        '<button onclick="promoteWallet(\'' + addrAttr + '\',\'' + lblAttr + '\',\'shadow\',this)" style="flex:1;padding:6px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--sans);">+ Shadow</button>',
+        '<button onclick="promoteWallet(\'' + addrAttr + '\',\'' + lblAttr + '\',\'live\',this)" style="flex:1;padding:6px;background:var(--green-dim);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--green);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--sans);">&#x2192; Live</button>',
+        '</div>',
         '</div>'
       ].join('');
-      card.querySelector('.remove-wl-btn').onclick = function(){ removeFromWatchlist(addr); };
-      card.querySelector('.watch-wl-btn').onclick = function(e){ addWatchFromScan(addr, lbl8, e.target); };
-      card.querySelector('.shadow-wl-btn').onclick = function(e){ promoteWallet(addr, lbl8, 'shadow', e.target); };
-      card.querySelector('.live-wl-btn').onclick = function(e){ promoteWallet(addr, lbl8, 'live', e.target); };
-      return card.outerHTML;
     }).join('');
 
     // Load P&L stats
@@ -1749,7 +1774,7 @@ async function checkForUpdates(){
 async function installUpdate(){
   const btn = document.getElementById('install-update-btn');
   const status = document.getElementById('update-status');
-  if(!confirm('Install update now? DashView will restart automatically.')) return;
+  if(!(await showConfirm('Install update now? DashView will restart automatically.'))) return;
   if(btn){ btn.disabled=true; btn.textContent='Installing…'; }
   if(status){ status.style.color='var(--muted)'; status.textContent='Pulling latest code…'; }
   try{

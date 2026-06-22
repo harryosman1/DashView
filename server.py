@@ -770,35 +770,28 @@ def api_watchlist_pnl():
             return jsonify({"wallets": []})
         wallets = json.loads(wl_path.read_text())
         results = []
-        from src.data_sources.data_api import DataApiClient
-        with DataApiClient(timeout=8) as api:
-            for w in wallets[:10]:
-                try:
-                    import httpx as _hx
-                    addr = w["address"]
-                    lb = {}
-                    try:
-                        r = _hx.get("https://lb-api.polymarket.com/portfolio",
-                                    params={"address": addr}, timeout=8)
-                        if r.status_code == 200:
-                            lb = r.json() or {}
-                    except Exception:
-                        pass
-                    all_time = None
-                    for key in ("profit","pnl","value","totalProfit","combinedPnl"):
-                        if lb.get(key) is not None:
-                            try: all_time = float(lb[key]); break
-                            except Exception: pass
-                    results.append({
-                        "address": addr,
-                        "label": w.get("label", addr[:10]),
-                        "combined": round(all_time or 0, 2),
-                        "resolved": round(float(lb.get("resolvedPnl") or all_time or 0), 2),
-                        "unrealized": round(float(lb.get("unrealizedPnl") or 0), 2),
-                        "positions": int(lb.get("openPositionsCount") or 0),
-                    })
-                except Exception as e:
-                    results.append({"address": w["address"], "label": w.get("label",""), "error": True})
+        for w in wallets[:10]:
+            addr = w["address"]
+            try:
+                # Reuse api_trader's proven multi-source lookup (screener cache
+                # -> leaderboard top 50 -> DataApiClient) instead of the old
+                # broken /portfolio endpoint call, which 404'd for every wallet.
+                resp = api_trader(addr)
+                # api_trader returns a Flask Response from jsonify(); unwrap it.
+                payload = json.loads(resp[0].get_data(as_text=True)) if isinstance(resp, tuple) else json.loads(resp.get_data(as_text=True))
+                if not payload.get("ok"):
+                    results.append({"address": addr, "label": w.get("label", addr[:10]), "error": True})
+                    continue
+                results.append({
+                    "address": addr,
+                    "label": w.get("label") or payload.get("label") or addr[:10],
+                    "combined": payload.get("combined", 0),
+                    "resolved": payload.get("resolved", 0),
+                    "unrealized": payload.get("unrealized", 0),
+                    "positions": payload.get("positions", 0),
+                })
+            except Exception:
+                results.append({"address": addr, "label": w.get("label",""), "error": True})
         return jsonify({"wallets": results})
     except Exception as e:
         return jsonify({"wallets": [], "error": str(e)})
@@ -856,34 +849,44 @@ def api_trader(addr):
             except Exception:
                 pass
 
-        # Source 2: data-api profile + positions
+        # Source 2: data-api positions (note: get_profile's /profile endpoint
+        # was retired by Polymarket — confirmed 404 directly via curl on
+        # 2026-06-22, both as ?user= query param and as a /profile/<addr>
+        # path. DO NOT re-add a call to it: data_api.py's _get() retries
+        # 404s up to 6x with exponential backoff, so a dead endpoint there
+        # silently burns 30+ seconds per wallet. /positions still works and
+        # already contains real realizedPnl/cashPnl per position, which is
+        # what we use below instead.)
+        resolved_pnl = 0.0
+        unrealized_pnl = 0.0
         with DataApiClient(timeout=8) as api:
             try:
-                prof = api.get_profile(addr) or {}
-                if not label:
-                    label = prof.get("name") or prof.get("pseudonym") or ""
-                if not predictions:
-                    for key in ("numTrades", "tradesCount", "predictionsCount"):
-                        if prof.get(key):
-                            predictions = int(prof[key]); break
-            except Exception:
-                pass
-            try:
                 pos_list = api.get_positions_by_user(addr) or []
-                positions = len([p for p in pos_list if not p.get("redeemed")])
+                positions = len([p for p in pos_list if not p.get("redeemable")])
+                for p in pos_list:
+                    try:
+                        resolved_pnl += float(p.get("realizedPnl") or 0)
+                        if not p.get("redeemable"):
+                            unrealized_pnl += float(p.get("cashPnl") or 0)
+                    except (TypeError, ValueError):
+                        continue
             except Exception:
                 pass
 
-        if all_time is None and not label and positions == 0:
+        combined = resolved_pnl + unrealized_pnl
+        if all_time is None:
+            all_time = combined
+
+        if all_time == 0 and not label and positions == 0:
             return jsonify({"ok": False, "error": "No Polymarket profile found for that address."}), 404
 
         return jsonify({
             "ok": True,
             "address": addr,
             "label": label,
-            "combined": round(all_time or 0, 2),
-            "resolved": round(all_time or 0, 2),
-            "unrealized": 0,
+            "combined": round(combined, 2),
+            "resolved": round(resolved_pnl, 2),
+            "unrealized": round(unrealized_pnl, 2),
             "positions": positions,
             "predictions": predictions,
         })
