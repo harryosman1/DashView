@@ -9,3 +9,5 @@ memory.md
 static/*.bak**
 watchdog.log
 hang_dumps/
+*.bak_pretimeout
+watchdog.sh

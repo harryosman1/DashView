@@ -1384,6 +1384,20 @@ def api_events():
 
 # SSL context for HTTPS
 import ssl as _ssl
+
+# Fix for indefinite hangs: Werkzeug's dev server has no timeout on accepting
+# a connection's TLS handshake. A client that opens a connection and never
+# completes (or never sends) its handshake (e.g. random internet scanner
+# bots probing the port, or a dropped connection mid-handshake) freezes the
+# ENTIRE single-threaded accept loop forever — confirmed via py-spy dumps on
+# 2026-06-23 showing the main thread stuck in ssl.py do_handshake() with no
+# other requests able to be served. Setting WSGIRequestHandler.timeout makes
+# Python's underlying socketserver apply that timeout to the handshake
+# itself, so a stalled connection gets dropped after N seconds instead of
+# blocking everything indefinitely.
+from werkzeug.serving import WSGIRequestHandler
+WSGIRequestHandler.timeout = 10
+
 def run_https():
     import argparse
     parser = argparse.ArgumentParser()
