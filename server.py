@@ -122,6 +122,53 @@ def get_live_pnl():
         logger.error(f"get_live_pnl failed: {e}")
         return {"error": str(e)}
 
+def get_live_pnl_by_wallet():
+    """Per-trader breakdown of live-tier P&L, built client-side from the
+    same CachedPnL.closed / open_positions_detail data get_live_pnl()
+    already uses in aggregate. Does not touch pnl_cache.py / bot core
+    code at all — pure read-only grouping of data that already exists."""
+    try:
+        from src.pnl_cache import get_cached_pnl
+        pnl = get_cached_pnl()
+        by_trader = {}
+
+        for c in pnl.closed:
+            t = c.trader
+            if t not in by_trader:
+                by_trader[t] = {"realized": 0.0, "wins": 0, "losses": 0, "open_positions": 0, "unrealized": 0.0}
+            by_trader[t]["realized"] += c.realized_pnl
+            if c.realized_pnl > 0:
+                by_trader[t]["wins"] += 1
+            elif c.realized_pnl < 0:
+                by_trader[t]["losses"] += 1
+
+        for o in pnl.open_positions_detail:
+            t = o.trader
+            if t not in by_trader:
+                by_trader[t] = {"realized": 0.0, "wins": 0, "losses": 0, "open_positions": 0, "unrealized": 0.0}
+            by_trader[t]["open_positions"] += 1
+            if o.unrealized_pnl is not None:
+                by_trader[t]["unrealized"] += o.unrealized_pnl
+
+        result = []
+        for trader, stats in by_trader.items():
+            total = stats["wins"] + stats["losses"]
+            result.append({
+                "trader": trader,
+                "realized": round(stats["realized"], 2),
+                "unrealized": round(stats["unrealized"], 2),
+                "combined": round(stats["realized"] + stats["unrealized"], 2),
+                "wins": stats["wins"],
+                "losses": stats["losses"],
+                "win_rate": round(stats["wins"] / total * 100, 1) if total else 0,
+                "open_positions": stats["open_positions"],
+            })
+        result.sort(key=lambda x: x["combined"], reverse=True)
+        return result
+    except Exception as e:
+        logger.error(f"get_live_pnl_by_wallet failed: {e}")
+        return []
+
 def get_sizing_estimate(shadow_wallets):
     try:
         bet_size = round(CAPITAL * RISK_PCT, 2)
@@ -221,6 +268,7 @@ def api_data():
         "timestamp": int(time.time()),
         "shadow_pnl": shadow,
         "live_pnl": get_live_pnl(),
+        "live_pnl_by_wallet": get_live_pnl_by_wallet(),
         "sizing": get_sizing_estimate(shadow),
         "bot_status": get_bot_status(),
         "screener": get_screener_results(),

@@ -196,6 +196,8 @@ input:checked+.slider:before{transform:translateX(18px);background:var(--green)}
       <div class="screener-row"><span class="screener-label">W / L</span><span class="screener-val" id="live-wl">—</span></div>
       <div class="screener-row" style="border-bottom:none;"><span class="screener-label">Drawdown</span><span class="screener-val" id="live-dd">—</span></div>
     </div>
+    <p class="section-label">Live Wallets</p>
+    <div id="live-wallet-list"><div class="empty-state"><div class="empty-icon">⏳</div>Loading…</div></div>
   </div>
 
   <!-- SIZING TAB -->
@@ -595,6 +597,30 @@ function renderLive(live){
   document.getElementById('live-wr').textContent=live.realized_win_rate?`${(live.realized_win_rate*100).toFixed(0)}%`:'—';
   document.getElementById('live-wl').textContent=`${live.realized_wins||0} W / ${live.realized_losses||0} L`;
   document.getElementById('live-dd').innerHTML=`<span class="${(live.current_drawdown_pct||0)>10?'neg':'neu'}">${live.current_drawdown_pct!=null?live.current_drawdown_pct.toFixed(1)+'%':'—'}</span>`;
+}
+
+function renderLiveWallets(wallets){
+  const el=document.getElementById('live-wallet-list');
+  if(!el) return;
+  if(!wallets||wallets.length===0){
+    el.innerHTML='<div class="empty-state"><div class="empty-icon">👥</div>No live-tier activity yet</div>';
+    return;
+  }
+  el.innerHTML=wallets.map((w,i)=>{
+    const av=AVATARS[i%AVATARS.length];const init=INITIALS(w.trader);
+    return `<div class="wallet-card">
+      <div class="wallet-top">
+        <div class="wallet-left"><div class="wallet-avatar ${av}">${init}</div><div><div class="wallet-name">${escapeHtml(w.trader)}</div><div class="wallet-status">${w.open_positions} open positions</div></div></div>
+        <div class="wallet-combined ${colorClass(w.combined)}">${fmt(w.combined)}</div>
+      </div>
+      <div class="wallet-grid">
+        <div class="wallet-stat"><div class="wallet-stat-val ${colorClass(w.realized)}">${fmt(w.realized)}</div><div class="wallet-stat-lbl">Realized</div></div>
+        <div class="wallet-stat"><div class="wallet-stat-val ${colorClass(w.unrealized)}">${fmt(w.unrealized)}</div><div class="wallet-stat-lbl">Unrealized</div></div>
+        <div class="wallet-stat"><div class="wallet-stat-val">${w.win_rate}%</div><div class="wallet-stat-lbl">Win Rate</div></div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:8px;text-align:center;">${w.wins}W / ${w.losses}L resolved</div>
+    </div>`;
+  }).join('');
 }
 
 function renderSizing(sz){
@@ -1754,6 +1780,7 @@ async function loadData(){
     renderSimWalletCheckboxes();
     renderWallets(data.shadow_pnl);
     renderLive(data.live_pnl);
+    renderLiveWallets(data.live_pnl_by_wallet);
     renderSizing(data.sizing);
     renderBot(data.bot_status);
     renderScreener(data.screener);
