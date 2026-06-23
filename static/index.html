@@ -574,8 +574,8 @@ function renderWallets(wallets){
   });
   el.innerHTML=sorted.map((w,i)=>{
     const av=AVATARS[i%AVATARS.length];const init=INITIALS(w.name);
-    if(!w.active)return`<div class="wallet-card inactive"><div class="wallet-top"><div class="wallet-left"><div class="wallet-avatar ${av}">${init}</div><div><div class="wallet-name">${w.name}</div><div class="wallet-status">watching — no activity yet</div></div></div><div class="wallet-combined neu">—</div></div><div style="display:flex;gap:6px;margin-top:10px;"><button onclick="demoteWallet('${w.address||w.name}','${w.name}',this)" style="flex:1;padding:8px;background:var(--red-dim);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--red);font-size:11px;font-weight:600;font-family:var(--sans);cursor:pointer;">✕ Remove</button></div></div>`;
-    return`<div class="wallet-card"><div class="wallet-top"><div class="wallet-left"><div class="wallet-avatar ${av}">${init}</div><div><div class="wallet-name">${w.name}</div><div class="wallet-status">${w.open_positions} open positions</div></div></div><div class="wallet-combined ${colorClass(w.combined)}">${fmt(w.combined)}</div></div><div class="wallet-grid" onclick="openPositions('${w.name}')" style="cursor:pointer;"><div class="wallet-stat"><div class="wallet-stat-val ${colorClass(w.resolved)}">${fmt(w.resolved)}</div><div class="wallet-stat-lbl">Resolved</div></div><div class="wallet-stat"><div class="wallet-stat-val ${colorClass(w.unrealized)}">${fmt(w.unrealized)}</div><div class="wallet-stat-lbl">Unrealized</div></div><div class="wallet-stat"><div class="wallet-stat-val">${w.open_positions}</div><div class="wallet-stat-lbl">Positions</div></div></div><div style="display:flex;gap:6px;margin-top:10px;"><button onclick="openPositions('${w.name}')" style="flex:2;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);font-size:11px;font-weight:600;font-family:var(--sans);cursor:pointer;">📊 Positions</button><button onclick="demoteWallet('${w.address||w.name}','${w.name}',this)" style="flex:1;padding:8px;background:var(--red-dim);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--red);font-size:11px;font-weight:600;font-family:var(--sans);cursor:pointer;">✕ Remove</button></div></div>`;
+    if(!w.active)return`<div class="wallet-card inactive"><div class="wallet-top"><div class="wallet-left"><div class="wallet-avatar ${av}">${init}</div><div><div class="wallet-name">${w.name}</div><div class="wallet-status">watching — no activity yet</div></div></div><div class="wallet-combined neu">—</div></div><div style="display:flex;gap:6px;margin-top:10px;"><button onclick="demoteToWatch('${w.address||w.name}','${w.name}',this)" style="flex:1;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);font-size:11px;font-weight:600;font-family:var(--sans);cursor:pointer;">👁 Demote to Watch</button><button onclick="demoteWallet('${w.address||w.name}','${w.name}',this)" style="flex:1;padding:8px;background:var(--red-dim);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--red);font-size:11px;font-weight:600;font-family:var(--sans);cursor:pointer;">✕ Remove</button></div></div>`;
+    return`<div class="wallet-card"><div class="wallet-top"><div class="wallet-left"><div class="wallet-avatar ${av}">${init}</div><div><div class="wallet-name">${w.name}</div><div class="wallet-status">${w.open_positions} open positions</div></div></div><div class="wallet-combined ${colorClass(w.combined)}">${fmt(w.combined)}</div></div><div class="wallet-grid" onclick="openPositions('${w.name}')" style="cursor:pointer;"><div class="wallet-stat"><div class="wallet-stat-val ${colorClass(w.resolved)}">${fmt(w.resolved)}</div><div class="wallet-stat-lbl">Resolved</div></div><div class="wallet-stat"><div class="wallet-stat-val ${colorClass(w.unrealized)}">${fmt(w.unrealized)}</div><div class="wallet-stat-lbl">Unrealized</div></div><div class="wallet-stat"><div class="wallet-stat-val">${w.open_positions}</div><div class="wallet-stat-lbl">Positions</div></div></div><div style="display:flex;gap:6px;margin-top:10px;"><button onclick="openPositions('${w.name}')" style="flex:2;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);font-size:11px;font-weight:600;font-family:var(--sans);cursor:pointer;">📊 Positions</button><button onclick="demoteToWatch('${w.address||w.name}','${w.name}',this)" style="flex:1;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);font-size:11px;font-weight:600;font-family:var(--sans);cursor:pointer;">👁 Demote</button><button onclick="demoteWallet('${w.address||w.name}','${w.name}',this)" style="flex:1;padding:8px;background:var(--red-dim);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--red);font-size:11px;font-weight:600;font-family:var(--sans);cursor:pointer;">✕ Remove</button></div></div>`;
   }).join('');
 }
 
@@ -1357,6 +1357,39 @@ function renderDailyList(){
         <span style="color:#4d8fff;">● Live: <span class="${colorClass(p.live_cumulative||0)}">${fmt(p.live_cumulative||0)}</span></span>
       </div>
     </div>`).join('');
+}
+
+async function demoteToWatch(address, name, btn){
+  if(!(await showConfirm(`Demote ${name} to Watchlist?\n\nThis will stop the bot from shadow-tracking this wallet, but keep it on your Watchlist for monitoring.`))) return;
+  btn.disabled = true;
+  btn.textContent = '…';
+  try{
+    const addRes = await fetch('/api/watchlist', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'add', address, label: name})});
+    const addData = await addRes.json();
+    if(!addData.ok){
+      btn.textContent = addData.error || 'Failed';
+      btn.style.color = 'var(--red)';
+      btn.disabled = false;
+      return;
+    }
+    const demoteRes = await fetch('/api/demote', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({address})});
+    const demoteData = await demoteRes.json();
+    if(demoteData.ok){
+      btn.textContent = '✓ Moved to Watch';
+      btn.style.background = 'var(--blue-dim)';
+      btn.style.borderColor = 'var(--blue)';
+      btn.style.color = 'var(--blue)';
+      setTimeout(()=>{ loadData(); }, 800);
+    } else {
+      btn.textContent = demoteData.error || 'Failed';
+      btn.style.color = 'var(--red)';
+      btn.disabled = false;
+    }
+  } catch(e) {
+    btn.textContent = 'Error';
+    btn.style.color = 'var(--red)';
+    btn.disabled = false;
+  }
 }
 
 async function demoteWallet(address, name, btn){

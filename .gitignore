@@ -7,3 +7,5 @@ vapid_private.pem
 watchlist.json
 memory.md
 static/*.bak**
+watchdog.log
+hang_dumps/
