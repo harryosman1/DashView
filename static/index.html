@@ -665,7 +665,8 @@ function renderScreener(screener){
         <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
           <a href="https://polymarket.com/profile/${w.address}" target="_blank" style="text-decoration:none;flex:1;">
             <div style="font-size:12px;font-weight:500;color:var(--blue);">${(w.address||'').slice(0,10)}…${(w.address||'').slice(-6)}</div>
-            <div style="font-size:11px;color:var(--muted);">all-time: <span class="${(w.all_time_profit||0)>0?'pos':'neg'}">$${((w.all_time_profit||0)).toFixed(0)}</span> · ${w.predictions||0} trades</div>
+            <div style="font-size:11px;color:var(--muted);">realized: <span class="${((w.screen_metrics&&w.screen_metrics.closed_pnl)||0)>0?'pos':'neg'}">$${(((w.screen_metrics&&w.screen_metrics.closed_pnl)||0)).toFixed(0)}</span> · ${Math.round(((w.screen_metrics&&w.screen_metrics.win_rate)||0)*100)}% WR · ${(w.screen_metrics&&w.screen_metrics.closed)||0} closed</div>
+            <div style="font-size:10px;color:var(--muted);opacity:0.8;">unrealized (open positions): <span class="${(w.all_time_profit||0)>0?'pos':'neg'}">$${((w.all_time_profit||0)).toFixed(0)}</span></div>
           </a>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
             <span style="font-size:10px;background:var(--green-dim);color:var(--green);padding:2px 8px;border-radius:20px;">⭐ Tier 2</span>
@@ -688,7 +689,8 @@ function renderScreener(screener){
         <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
           <a href="https://polymarket.com/profile/${w.address}" target="_blank" style="text-decoration:none;flex:1;">
             <div style="font-size:12px;font-weight:500;color:var(--blue);">${(w.address||'').slice(0,10)}…${(w.address||'').slice(-6)}</div>
-            <div style="font-size:11px;color:var(--muted);">all-time: <span class="${(w.all_time_profit||0)>0?'pos':'neg'}">$${((w.all_time_profit||0)).toFixed(0)}</span> · ${w.predictions||0} trades</div>
+            <div style="font-size:11px;color:var(--muted);">realized: <span class="${((w.screen_metrics&&w.screen_metrics.closed_pnl)||0)>0?'pos':'neg'}">$${(((w.screen_metrics&&w.screen_metrics.closed_pnl)||0)).toFixed(0)}</span> · ${Math.round(((w.screen_metrics&&w.screen_metrics.win_rate)||0)*100)}% WR · ${(w.screen_metrics&&w.screen_metrics.closed)||0} closed</div>
+            <div style="font-size:10px;color:var(--muted);opacity:0.8;">unrealized (open positions): <span class="${(w.all_time_profit||0)>0?'pos':'neg'}">$${((w.all_time_profit||0)).toFixed(0)}</span></div>
           </a>
           <span style="font-size:10px;background:var(--yellow-dim);color:var(--yellow);padding:2px 8px;border-radius:20px;">⚠️ Caution</span>
         </div>
