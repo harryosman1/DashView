@@ -602,18 +602,36 @@ def api_promote():
             return jsonify({"ok": True, "message": f"Added {name} to shadow list"})
 
         elif mode == "live":
-            # Add to roster.yaml
-            roster = {}
+            # Add to roster.yaml — must be a FLAT LIST at the top level,
+            # matching roster_loader.py's required schema (NOT a dict with
+            # a "traders" key — that was the original bug, fixed Jun 24).
+            roster = []
             if roster_path.exists():
-                roster = yaml.safe_load(roster_path.read_text()) or {}
-            traders = roster.get("traders", [])
-            for w in traders:
+                roster = yaml.safe_load(roster_path.read_text()) or []
+            if not isinstance(roster, list):
+                return jsonify({"ok": False, "error": "roster.yaml is not a flat list — refusing to write, check file manually"})
+            for w in roster:
                 if w.get("address","").lower() == address:
                     return jsonify({"ok": False, "error": "Already in roster"})
-            traders.append({"name": name, "address": address, "tier": "live"})
-            roster["traders"] = traders
+            # Conservative default sizing — promoting via this button should
+            # never produce a live-tier entry with NO sizing at all. $5.00
+            # matches the bot's own hard minimum trade floor (kelly_below_min_size),
+            # so this is the smallest sane default; revise manually in roster.yaml
+            # before relying on this for a real (non-dry-run) promotion.
+            # added_date is REQUIRED by roster_loader.py (REQUIRED_FIELDS) —
+            # confirmed via direct loader test Jun 24, omitting it causes the
+            # bot to reject the whole file on next restart.
+            from datetime import datetime, timezone
+            roster.append({
+                "name": name,
+                "address": address,
+                "tier": "live",
+                "active": True,
+                "added_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                "sizing": {"base_usd": 5.0},
+            })
             roster_path.write_text(yaml.dump(roster, default_flow_style=False))
-            return jsonify({"ok": True, "message": f"Added {name} to live roster"})
+            return jsonify({"ok": True, "message": f"Added {name} to live roster with default $5.00 sizing — review/adjust before relying on this for real trading"})
 
         return jsonify({"ok": False, "error": "Invalid mode"})
     except Exception as e:
