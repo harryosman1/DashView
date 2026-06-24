@@ -285,7 +285,8 @@ input:checked+.slider:before{transform:translateX(18px);background:var(--green)}
 
     <p class="section-label">Run Scanner</p>
     <div id="scanner-status" style="margin-bottom:10px;"></div>
-    <button onclick="runScannerWithConfig()" id="scan-btn" style="width:100%;padding:14px;background:var(--green-dim);border:1px solid var(--green);border-radius:var(--radius);color:var(--green);font-size:14px;font-weight:600;font-family:var(--sans);cursor:pointer;letter-spacing:0.3px;-webkit-tap-highlight-color:transparent;">⚡ Run with These Settings</button>
+    <button onclick="runScannerWithConfig()" id="scan-btn" style="width:100%;padding:14px;background:var(--green-dim);border:1px solid var(--green);border-radius:var(--radius);color:var(--green);font-size:14px;font-weight:600;font-family:var(--sans);cursor:pointer;letter-spacing:0.3px;-webkit-tap-highlight-color:transparent;margin-bottom:10px;">⚡ Run with These Settings</button>
+    <button onclick="runScannerDeep()" id="scan-deep-btn" style="width:100%;padding:14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:14px;font-weight:600;font-family:var(--sans);cursor:pointer;letter-spacing:0.3px;-webkit-tap-highlight-color:transparent;">🔍 Run Deep Scan (all markets)</button>
     <button onclick="runNetwork()" id="network-btn" style="width:100%;padding:14px;background:var(--blue-dim);border:1px solid var(--blue);border-radius:var(--radius);color:var(--blue);font-size:14px;font-weight:600;font-family:var(--sans);cursor:pointer;letter-spacing:0.3px;margin-top:10px;-webkit-tap-highlight-color:transparent;">🌐 Run Network Follow</button>
   </div>
 
@@ -1759,6 +1760,22 @@ async function runScannerWithConfig(){
     if(d.ok){status.innerHTML='<div class="live-banner">✅ Pipeline started. Check back in a few hours for results.</div>';}
     else{status.innerHTML=`<div class="info-banner">⚠️ ${d.error||'Failed to start pipeline'}</div>`;btn.disabled=false;btn.textContent='⚡ Run with These Settings';btn.style.opacity='1';}
   }catch(e){status.innerHTML='<div class="info-banner">⚠️ Could not connect to server</div>';btn.disabled=false;btn.textContent='⚡ Run with These Settings';btn.style.opacity='1';}
+}
+async function runScannerDeep(){
+  const btn=document.getElementById('scan-deep-btn');
+  const status=document.getElementById('scanner-status');
+  const confirmed = await showConfirm('Run DEEP scan?\n\nThis screens ALL active markets (~2,100) instead of just the top ones — finds ~20x more wallets, but the full screen can take HOURS instead of minutes. Recommended for occasional deliberate runs, not every day.');
+  if(!confirmed) return;
+
+  btn.disabled=true; btn.textContent='⏳ Deep pipeline running…';
+  btn.style.opacity='0.6';
+  status.innerHTML='<div class="info-banner">🔍 DEEP scan started — screening all active markets. This can take HOURS. You can close this tab — it runs in the background.</div>';
+  try{
+    const r=await fetch('/api/run-scanner-deep',{method:'POST'});
+    const d=await r.json();
+    if(d.ok){status.innerHTML='<div class="live-banner">✅ Deep pipeline started. This is a long-running scan — check back in a few hours for results.</div>';}
+    else{status.innerHTML=`<div class="info-banner">⚠️ ${d.error||'Failed to start deep pipeline'}</div>`;btn.disabled=false;btn.textContent='🔍 Run Deep Scan (all markets)';btn.style.opacity='1';}
+  }catch(e){status.innerHTML='<div class="info-banner">⚠️ Could not connect to server</div>';btn.disabled=false;btn.textContent='🔍 Run Deep Scan (all markets)';btn.style.opacity='1';}
 }
 async function runNetwork(){
   const btn=document.getElementById('network-btn');

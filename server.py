@@ -466,6 +466,27 @@ def api_run_scanner():
         logger.error(f"Promote failed: {e}")
         return jsonify({"ok": False, "error": str(e)})
 
+@app.route("/api/run-scanner-deep", methods=["POST"])
+def api_run_scanner_deep():
+    """DEEP DISCOVERY MODE: screens ALL active markets (~2,100) instead of
+    just the top n_markets by volume — surfaces a much larger candidate
+    pool (151,816 raw wallets / ~24,500 human-size in testing, vs ~21,900/
+    1,135 in default mode). Takes much longer (~9 min discovery alone, then
+    hours for the full Tier 1/2 screen on the larger pool) — meant for
+    occasional deliberate runs via this button, not the automated cron job.
+    Logs to a SEPARATE file from the normal scanner so deep runs don't mix
+    into and confuse the regular scan history."""
+    try:
+        import subprocess
+        subprocess.Popen(
+            ["bash", "-c", f"cd {BOT_DIR} && rm -f /tmp/screen-v3/discovered.json && ./scripts/run_pipeline.sh --deep >> /tmp/screen-v3/cron_deep.log 2>&1"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+        return jsonify({"ok": True})
+    except Exception as e:
+        logger.error(f"Deep scanner failed: {e}")
+        return jsonify({"ok": False, "error": str(e)})
+
 @app.route("/api/run-network", methods=["POST"])
 def api_run_network():
     try:

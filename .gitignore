@@ -12,3 +12,4 @@ hang_dumps/
 *.bak_pretimeout
 watchdog.sh
 *.bak_before_live_wallets
+*.bak_before_deep_button
