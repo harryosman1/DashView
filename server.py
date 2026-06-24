@@ -231,7 +231,17 @@ def get_screener_results():
     try:
         screen_dir = cfg.SCREEN_DIR
         verified = {}
-        vpath = screen_dir / "verified_passers.json"
+        # Read from all_verified_passers.json (the CUMULATIVE record across
+        # every batch of a run), not verified_passers.json (which only ever
+        # holds the MOST RECENT batch's results and gets overwritten every
+        # batch — confirmed 2026-06-24 this was silently showing stale/
+        # incomplete data, e.g. only the last empty batch's "0 candidates"
+        # instead of the real accumulated results). Fall back to
+        # verified_passers.json only if the cumulative file doesn't exist
+        # yet (e.g. a screen that hasn't completed a full pipeline run).
+        vpath = screen_dir / "all_verified_passers.json"
+        if not vpath.exists():
+            vpath = screen_dir / "verified_passers.json"
         if vpath.exists():
             data = json.loads(vpath.read_text()) if vpath.read_text().strip() else []
             if isinstance(data, list):
@@ -241,9 +251,9 @@ def get_screener_results():
                     "count": len(data),
                     "tier2_count": len(tier2),
                     "tier1_count": len(tier1_only),
-                    "tier2": tier2[:10],
-                    "tier1_only": tier1_only[:10],
-                    "wallets": data[:5],
+                    "tier2": tier2,
+                    "tier1_only": tier1_only,
+                    "wallets": data,
                     "last_updated": int(vpath.stat().st_mtime)
                 }
         network = {}

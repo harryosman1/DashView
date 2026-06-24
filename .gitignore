@@ -13,3 +13,4 @@ hang_dumps/
 watchdog.sh
 *.bak_before_live_wallets
 *.bak_before_deep_button
+*.bak_before_screener_display_fix
