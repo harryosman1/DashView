@@ -150,11 +150,30 @@ def get_live_pnl_by_wallet():
             if o.unrealized_pnl is not None:
                 by_trader[t]["unrealized"] += o.unrealized_pnl
 
+        # Resolve trader NAME -> address via roster.yaml (the live-tier
+        # source of truth) so the frontend can act on these wallets (e.g.
+        # demote to shadow) without only having a display name to go on.
+        name_to_address = {}
+        try:
+            import yaml as _yaml
+            roster_path = cfg.BOT_DIR / "config" / "roster.yaml"
+            if roster_path.exists():
+                roster = _yaml.safe_load(roster_path.read_text()) or []
+                if isinstance(roster, list):
+                    for w in roster:
+                        nm = w.get("name")
+                        addr = w.get("address")
+                        if nm and addr:
+                            name_to_address[nm] = addr
+        except Exception as e:
+            logger.error(f"get_live_pnl_by_wallet: roster address lookup failed: {e}")
+
         result = []
         for trader, stats in by_trader.items():
             total = stats["wins"] + stats["losses"]
             result.append({
                 "trader": trader,
+                "address": name_to_address.get(trader),
                 "realized": round(stats["realized"], 2),
                 "unrealized": round(stats["unrealized"], 2),
                 "combined": round(stats["realized"] + stats["unrealized"], 2),
@@ -1326,6 +1345,63 @@ def api_push_unsubscribe():
         save_push_subs(subs)
         return jsonify({"ok": True})
     except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.route("/api/demote-to-shadow", methods=["POST"])
+def api_demote_to_shadow():
+    """Demote a LIVE-tier wallet back to shadow tracking. Unlike /api/demote
+    (which removes a wallet from EVERY list — shadow_list.yaml,
+    shadow_traders.json, AND roster.yaml), this is a compose action matching
+    the existing demoteToWatch pattern: ADD to the destination tier first,
+    THEN remove from the source tier (roster.yaml live entry). This keeps
+    the wallet under shadow observation rather than dropping it entirely."""
+    try:
+        import yaml as _yaml
+        from flask import request as _req
+        from datetime import datetime, timezone
+        data = _req.get_json()
+        address = (data.get("address") or "").lower().strip()
+        name = data.get("name", address[:8] if address else "")
+        if not address:
+            return jsonify({"ok": False, "error": "No address provided"})
+
+        # 1. Add to shadow_traders.json if not already present
+        st_path = cfg.BOT_DIR / ".tradingbot" / "shadow_traders.json"
+        st_path.parent.mkdir(parents=True, exist_ok=True)
+        traders = json.loads(st_path.read_text()) if st_path.exists() else []
+        already_shadow = any(t.get("address","").lower() == address for t in traders)
+        if not already_shadow:
+            traders.append({
+                "address": address,
+                "name": name,
+                "added_date": datetime.now(timezone.utc).isoformat(),
+                "source_screen_id": "dashview_demote_from_live",
+                "active": True,
+                "activity_status": None,
+                "notes": "Demoted from live tier via DashView.",
+            })
+            st_path.write_text(json.dumps(traders, indent=2))
+
+        # 2. Remove from roster.yaml (the live-tier file) ONLY — do not
+        # touch shadow_list.yaml or anything else, unlike /api/demote.
+        roster_path = cfg.BOT_DIR / "config" / "roster.yaml"
+        removed_from_live = False
+        if roster_path.exists():
+            roster = _yaml.safe_load(roster_path.read_text()) or []
+            if isinstance(roster, list):
+                new_roster = [w for w in roster if w.get("address","").lower() != address]
+                if len(new_roster) < len(roster):
+                    roster_path.write_text(_yaml.dump(new_roster, default_flow_style=False))
+                    removed_from_live = True
+
+        if not removed_from_live:
+            return jsonify({"ok": False, "error": "Wallet not found in live roster (roster.yaml) — nothing to demote"})
+
+        logger.info(f"Demoted {name} ({address}) from live to shadow")
+        msg = f"Demoted {name} to shadow tracking" + (" (was already shadow-tracked)" if already_shadow else "")
+        return jsonify({"ok": True, "message": msg})
+    except Exception as e:
+        logger.error(f"Demote-to-shadow failed: {e}")
         return jsonify({"ok": False, "error": str(e)})
 
 @app.route("/api/demote", methods=["POST"])

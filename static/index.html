@@ -620,6 +620,7 @@ function renderLiveWallets(wallets){
         <div class="wallet-stat"><div class="wallet-stat-val">${w.win_rate}%</div><div class="wallet-stat-lbl">Win Rate</div></div>
       </div>
       <div style="font-size:11px;color:var(--muted);margin-top:8px;text-align:center;">${w.wins}W / ${w.losses}L resolved</div>
+      ${w.address?`<div style="display:flex;gap:6px;margin-top:10px;"><button onclick="demoteLiveToShadow('${w.address}','${escapeHtml(w.trader)}',this)" style="flex:1;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);font-size:11px;font-weight:600;font-family:var(--sans);cursor:pointer;">↓ Demote to Shadow</button></div>`:''}
     </div>`;
   }).join('');
 }
@@ -1386,6 +1387,31 @@ function renderDailyList(){
         <span style="color:#4d8fff;">● Live: <span class="${colorClass(p.live_cumulative||0)}">${fmt(p.live_cumulative||0)}</span></span>
       </div>
     </div>`).join('');
+}
+
+async function demoteLiveToShadow(address, name, btn){
+  if(!(await showConfirm(`Demote ${name} from LIVE to Shadow?\n\nThis removes it from the live roster (roster.yaml) and keeps it under shadow tracking for continued monitoring.`))) return;
+  btn.disabled = true;
+  btn.textContent = '…';
+  try{
+    const r = await fetch('/api/demote-to-shadow', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({address, name})});
+    const data = await r.json();
+    if(data.ok){
+      btn.textContent = '✓ Moved to Shadow';
+      btn.style.background = 'var(--blue-dim)';
+      btn.style.borderColor = 'var(--blue)';
+      btn.style.color = 'var(--blue)';
+      setTimeout(()=>{ loadData(); }, 800);
+    } else {
+      btn.textContent = data.error || 'Failed';
+      btn.style.color = 'var(--red)';
+      btn.disabled = false;
+    }
+  } catch(e) {
+    btn.textContent = 'Error';
+    btn.style.color = 'var(--red)';
+    btn.disabled = false;
+  }
 }
 
 async function demoteToWatch(address, name, btn){
