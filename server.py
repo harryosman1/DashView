@@ -123,8 +123,17 @@ def get_shadow_pnl():
             except Exception:
                 pass
             if s:
-                wins = s.realized_wins
-                losses = s.realized_losses
+                # Combine BOTH win/loss buckets — realized_wins/losses only
+                # count SELL-based closes, while resolution_wins/losses
+                # (added 2026-06-25) count RESOLUTION-based closes. Most
+                # copy-traded wallets hold to resolution rather than
+                # actively selling, so using only the sell-based bucket
+                # produced a misleading 0% win rate for wallets with real,
+                # substantial resolution-based profit (e.g. soarin22:
+                # $308.94 resolved profit, 14W/5L resolution closes, but
+                # 0/0 sell-based closes — confirmed via direct testing).
+                wins = s.realized_wins + s.resolution_wins
+                losses = s.realized_losses + s.resolution_losses
                 total = wins + losses
                 win_rate = round(wins / total * 100, 1) if total else None
                 result.append({"name": name, "address": addr, "combined": round(s.combined_hypothetical_pnl,2), "resolved": round(s.resolution_realized_pnl,2), "unrealized": round(s.hypothetical_unrealized_pnl,2), "open_positions": s.open_positions_count, "wins": wins, "losses": losses, "win_rate": win_rate, "active": True})
@@ -706,7 +715,23 @@ def api_promote():
                 "sizing": {"base_usd": 5.0},
             })
             roster_path.write_text(yaml.dump(roster, default_flow_style=False))
-            return jsonify({"ok": True, "message": f"Added {name} to live roster with default $5.00 sizing — review/adjust before relying on this for real trading"})
+            # CRITICAL: roster.yaml is only read at bot STARTUP — confirmed
+            # repeatedly (TRADER_SIZING, TRADER_STOP_LOSS_OVERRIDES, LIVE
+            # traders list all loaded once). Without restarting here, this
+            # promotion would silently do NOTHING until some unrelated
+            # future restart happens to occur — discovered Jun 25 via the
+            # exact same gap in /api/demote-to-shadow (a wallet kept
+            # trading live for ~2 hours after being "demoted" because
+            # nothing restarted the bot to pick up the roster.yaml change).
+            import subprocess as _subprocess
+            try:
+                _subprocess.run(
+                    ["systemctl", "restart", "tradingbot-copy-bot", "tradingbot-telegram-bot"],
+                    timeout=15, capture_output=True, text=True,
+                )
+            except Exception as _e:
+                logger.error(f"api_promote live: bot restart failed: {_e}")
+            return jsonify({"ok": True, "message": f"Added {name} to live roster with default $5.00 sizing and restarted the bot — review/adjust sizing before relying on this for real trading"})
 
         return jsonify({"ok": False, "error": "Invalid mode"})
     except Exception as e:
@@ -1459,8 +1484,25 @@ def api_demote_to_shadow():
         if not removed_from_live:
             return jsonify({"ok": False, "error": "Wallet not found in live roster (roster.yaml) — nothing to demote"})
 
+        # CRITICAL: roster.yaml is only read at bot STARTUP — without
+        # restarting here, this wallet would keep being treated as live
+        # (sizing, stop-loss overrides, the LIVE traders list — all
+        # loaded once) until some unrelated future restart happened to
+        # occur. CONFIRMED this exact gap caused a real problem Jun 25:
+        # 0xc7e53a was demoted but kept trading live (including a
+        # stop_loss_triggered event) for ~2 hours until an unrelated
+        # restart for a different feature finally picked up the change.
+        import subprocess as _subprocess
+        try:
+            _subprocess.run(
+                ["systemctl", "restart", "tradingbot-copy-bot", "tradingbot-telegram-bot"],
+                timeout=15, capture_output=True, text=True,
+            )
+        except Exception as _e:
+            logger.error(f"api_demote_to_shadow: bot restart failed: {_e}")
+
         logger.info(f"Demoted {name} ({address}) from live to shadow")
-        msg = f"Demoted {name} to shadow tracking" + (" (was already shadow-tracked)" if already_shadow else "")
+        msg = f"Demoted {name} to shadow tracking and restarted the bot" + (" (was already shadow-tracked)" if already_shadow else "")
         return jsonify({"ok": True, "message": msg})
     except Exception as e:
         logger.error(f"Demote-to-shadow failed: {e}")
