@@ -189,6 +189,10 @@ input:checked+.slider:before{transform:translateX(18px);background:var(--green)}
     <div class="screener-card" id="live-perf-card">
       <div class="screener-row"><span class="screener-label">Starting capital</span><span class="screener-val" id="live-capital">—</span></div>
       <div class="screener-row"><span class="screener-label">Total value</span><span class="screener-val" id="live-total">—</span></div>
+      <div class="screener-row"><span class="screener-label">Open positions cost basis</span><span class="screener-val" id="live-cost-basis">—</span></div>
+      <div class="screener-row"><span class="screener-label">Open positions value</span><span class="screener-val" id="live-mtm">—</span></div>
+      <div class="screener-row"><span class="screener-label">Closed positions cost basis</span><span class="screener-val" id="live-closed-cost-basis">—</span></div>
+      <div class="screener-row"><span class="screener-label">Closed positions proceeds</span><span class="screener-val" id="live-closed-proceeds">—</span></div>
       <div class="screener-row"><span class="screener-label">Return</span><span class="screener-val" id="live-return">—</span></div>
       <div class="screener-row"><span class="screener-label">Today P&L</span><span class="screener-val" id="live-today">—</span></div>
       <div class="screener-row"><span class="screener-label">7d P&L</span><span class="screener-val" id="live-7d">—</span></div>
@@ -592,6 +596,10 @@ function renderLive(live){
   document.getElementById('live-unrealized').innerHTML=`<span class="${colorClass(live.unrealized)}">${fmt(live.unrealized)}</span>`;
   document.getElementById('live-capital').textContent=`$${live.starting_capital?.toFixed(0)||'—'}`;
   document.getElementById('live-total').innerHTML=`<span class="${colorClass((live.total_value||0)-live.starting_capital)}">${live.total_value?'$'+live.total_value.toFixed(0):'—'}</span>`;
+  document.getElementById('live-cost-basis').textContent=live.open_positions_cost_basis!=null?'$'+live.open_positions_cost_basis.toFixed(2):'—';
+  document.getElementById('live-mtm').innerHTML=`<span class="${colorClass((live.open_positions_mark_to_market||0)-(live.open_positions_cost_basis||0))}">${live.open_positions_mark_to_market!=null?'$'+live.open_positions_mark_to_market.toFixed(2):'—'}</span>`;
+  document.getElementById('live-closed-cost-basis').textContent=live.closed_cost_basis!=null?'$'+live.closed_cost_basis.toFixed(2):'—';
+  document.getElementById('live-closed-proceeds').innerHTML=`<span class="${colorClass((live.closed_proceeds||0)-(live.closed_cost_basis||0))}">${live.closed_proceeds!=null?'$'+live.closed_proceeds.toFixed(2):'—'}</span>`;
   document.getElementById('live-return').innerHTML=`<span class="${colorClass(live.return_pct||0)}">${live.return_pct!=null?(live.return_pct>0?'+':'')+live.return_pct.toFixed(2)+'%':'—'}</span>`;
   document.getElementById('live-today').innerHTML=`<span class="${colorClass(live.today_pnl||0)}">${fmt(live.today_pnl||0)}</span>`;
   document.getElementById('live-7d').innerHTML=`<span class="${colorClass(live.rolling_7d_pnl||0)}">${fmt(live.rolling_7d_pnl||0)}</span>`;

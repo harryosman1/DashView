@@ -139,6 +139,16 @@ def get_live_pnl():
     try:
         from src.pnl_cache import get_cached_pnl
         pnl = get_cached_pnl()
+        # Cost basis (invested_in_open) was already computed in _compute()
+        # and returned on CachedPnL, just never exposed via this API
+        # function. Current mark-to-market value is a trivial derived sum
+        # (cost basis + unrealized P&L) — not a separately stored field,
+        # since unrealized_pnl is defined as the gain/loss relative to
+        # cost basis.
+        cost_basis = round(pnl.invested_in_open, 2)
+        mark_to_market_value = round(pnl.invested_in_open + pnl.unrealized_pnl, 2)
+        closed_cost_basis = round(pnl.closed_cost_basis, 2)
+        closed_proceeds = round(pnl.closed_proceeds, 2)
         return {
             "realized": round(pnl.realized_pnl, 2),
             "unrealized": round(pnl.unrealized_pnl, 2),
@@ -154,6 +164,10 @@ def get_live_pnl():
             "open_positions": pnl.unrealized_count,
             "current_drawdown_pct": round(pnl.current_drawdown_pct, 2),
             "paper_mode": pnl.realized_pnl == 0 and pnl.realized_wins == 0,
+            "open_positions_cost_basis": cost_basis,
+            "open_positions_mark_to_market": mark_to_market_value,
+            "closed_cost_basis": closed_cost_basis,
+            "closed_proceeds": closed_proceeds,
         }
     except Exception as e:
         logger.error(f"get_live_pnl failed: {e}")
