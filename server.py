@@ -71,6 +71,39 @@ def with_timeout(seconds=20):
         return wrapper
     return decorator
 
+def resolve_polymarket_name(address, fallback=None):
+    """Try to resolve a wallet's real Polymarket display name via the
+    leaderboard profit endpoint (lb-api.polymarket.com/profit) — this is
+    the only known-working source for usernames as of Jun 2026, since
+    data-api.polymarket.com/profile and lb-api.polymarket.com/portfolio
+    are both confirmed dead (404) since 2026-06-11. Works for low-volume
+    wallets too, not just leaderboard-caliber ones (confirmed via testing
+    Jun 24/25: resolved names for wallets with as little as ~$58 profit).
+
+    Returns the resolved name, or `fallback` if resolution fails, the
+    response is empty, or the only available name is Polymarket's own
+    auto-generated "0xADDRESS-timestamp" placeholder (not a real chosen
+    username — happens for wallets that never set a custom display name).
+
+    Short timeout (4s) and broad exception handling so a slow or dead
+    upstream call never blocks a promote/demote action — this is a
+    nice-to-have enrichment, not a required step."""
+    import re
+    try:
+        import httpx
+        url = f"https://lb-api.polymarket.com/profit?address={address}&window=All&limit=1"
+        r = httpx.get(url, timeout=4.0, headers={"User-Agent": "Mozilla/5.0"})
+        if r.status_code == 200:
+            data = r.json()
+            if data and isinstance(data, list) and len(data) > 0:
+                name = data[0].get("name") or data[0].get("pseudonym")
+                if name and not re.match(r"^0x[a-fA-F0-9]+-\d+$", name):
+                    return name
+    except Exception as e:
+        logger.error(f"resolve_polymarket_name failed for {address}: {e}")
+    return fallback
+
+
 def get_shadow_pnl():
     try:
         from src.pnl_cache import get_cached_shadow_pnl
@@ -594,8 +627,13 @@ def api_promote():
         import json, yaml
         data = request.get_json()
         address = data.get("address", "").lower()
-        name = data.get("name", address[:8])
+        name = data.get("name") or ""
         mode = data.get("mode", "shadow")  # "shadow" or "live"
+        # If the caller didn't supply a real name (or only gave us an
+        # address-prefix-style placeholder), try to resolve the wallet's
+        # actual Polymarket display name before falling back further.
+        if not name or name.lower().startswith(address[:8].lower()):
+            name = resolve_polymarket_name(address, fallback=name or address[:8])
 
         if not address:
             return jsonify({"ok": False, "error": "No address provided"})
@@ -1365,9 +1403,15 @@ def api_demote_to_shadow():
         from datetime import datetime, timezone
         data = _req.get_json()
         address = (data.get("address") or "").lower().strip()
-        name = data.get("name", address[:8] if address else "")
+        name = data.get("name") or ""
         if not address:
             return jsonify({"ok": False, "error": "No address provided"})
+        # If the caller didn't supply a real name (or only gave us an
+        # address-prefix-style placeholder, e.g. from a live-tier card
+        # where the name happens to be an address), try to resolve the
+        # wallet's actual Polymarket display name first.
+        if not name or name.lower().startswith(address[:8].lower()):
+            name = resolve_polymarket_name(address, fallback=name or address[:8])
 
         # 1. Add to shadow_traders.json if not already present
         st_path = cfg.BOT_DIR / ".tradingbot" / "shadow_traders.json"
