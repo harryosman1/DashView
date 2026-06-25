@@ -90,9 +90,13 @@ def get_shadow_pnl():
             except Exception:
                 pass
             if s:
-                result.append({"name": name, "address": addr, "combined": round(s.combined_hypothetical_pnl,2), "resolved": round(s.resolution_realized_pnl,2), "unrealized": round(s.hypothetical_unrealized_pnl,2), "open_positions": s.open_positions_count, "active": True})
+                wins = s.realized_wins
+                losses = s.realized_losses
+                total = wins + losses
+                win_rate = round(wins / total * 100, 1) if total else None
+                result.append({"name": name, "address": addr, "combined": round(s.combined_hypothetical_pnl,2), "resolved": round(s.resolution_realized_pnl,2), "unrealized": round(s.hypothetical_unrealized_pnl,2), "open_positions": s.open_positions_count, "wins": wins, "losses": losses, "win_rate": win_rate, "active": True})
             else:
-                result.append({"name": name, "address": addr, "combined": 0, "resolved": 0, "unrealized": 0, "open_positions": 0, "active": False})
+                result.append({"name": name, "address": addr, "combined": 0, "resolved": 0, "unrealized": 0, "open_positions": 0, "wins": 0, "losses": 0, "win_rate": None, "active": False})
         return result
     except Exception as e:
         logger.error(f"get_shadow_pnl failed: {e}")
