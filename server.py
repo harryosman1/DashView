@@ -214,6 +214,7 @@ def get_live_pnl_by_wallet():
         # source of truth) so the frontend can act on these wallets (e.g.
         # demote to shadow) without only having a display name to go on.
         name_to_address = {}
+        name_to_tier = {}
         try:
             import yaml as _yaml
             roster_path = cfg.BOT_DIR / "config" / "roster.yaml"
@@ -225,11 +226,26 @@ def get_live_pnl_by_wallet():
                         addr = w.get("address")
                         if nm and addr:
                             name_to_address[nm] = addr
+                        if nm:
+                            name_to_tier[nm] = w.get("tier")
         except Exception as e:
             logger.error(f"get_live_pnl_by_wallet: roster address lookup failed: {e}")
 
+        # Only show a wallet if it's CURRENTLY tier:live, OR it has open
+        # positions right now regardless of tier (an open position needs
+        # to stay visible until it resolves, even after demotion — see
+        # the established orphaned-position policy elsewhere in this
+        # project). A wallet with historical closed P&L but no open
+        # positions and no current live tier (e.g. fully demoted,
+        # nothing left open) should NOT show up here forever — that was
+        # the real bug (Sportmaster777, 0xc7e53a both lingering with
+        # zero open positions purely due to historical closed trades).
         result = []
         for trader, stats in by_trader.items():
+            is_currently_live = name_to_tier.get(trader) == "live"
+            has_open = stats["open_positions"] > 0
+            if not (is_currently_live or has_open):
+                continue
             total = stats["wins"] + stats["losses"]
             result.append({
                 "trader": trader,
