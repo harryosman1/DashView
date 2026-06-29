@@ -146,37 +146,77 @@ def get_shadow_pnl():
 
 def get_live_pnl():
     try:
+        import datetime
         from src.pnl_cache import get_cached_pnl
         pnl = get_cached_pnl()
-        # Cost basis (invested_in_open) was already computed in _compute()
-        # and returned on CachedPnL, just never exposed via this API
-        # function. Current mark-to-market value is a trivial derived sum
-        # (cost basis + unrealized P&L) — not a separately stored field,
-        # since unrealized_pnl is defined as the gain/loss relative to
-        # cost basis.
-        cost_basis = round(pnl.invested_in_open, 2)
-        mark_to_market_value = round(pnl.invested_in_open + pnl.unrealized_pnl, 2)
-        closed_cost_basis = round(pnl.closed_cost_basis, 2)
-        closed_proceeds = round(pnl.closed_proceeds, 2)
+
+        # Filter to CURRENTLY tier:live traders only — pnl.closed and
+        # pnl.open_positions_detail include every trader that EVER had a
+        # closed/open position regardless of current roster.yaml status.
+        # Without this filter, this aggregate silently includes demoted/
+        # removed wallets' historical P&L (e.g. Sportmaster777, 0xc7e53a)
+        # forever, inflating losses against the current live strategy.
+        # Discovered Jun 28 via a real Harry-reported discrepancy between
+        # the dashboard and a direct per-trader query.
+        live_traders = set()
+        try:
+            import yaml as _yaml
+            roster_path = cfg.BOT_DIR / "config" / "roster.yaml"
+            if roster_path.exists():
+                roster = _yaml.safe_load(roster_path.read_text()) or []
+                if isinstance(roster, list):
+                    live_traders = {w.get("name") for w in roster if w.get("tier") == "live"}
+        except Exception as e:
+            logger.error(f"get_live_pnl: roster live-trader lookup failed: {e}")
+
+        closed = [c for c in pnl.closed if c.trader in live_traders]
+        open_positions = [o for o in pnl.open_positions_detail if o.trader in live_traders]
+
+        realized = sum(c.realized_pnl for c in closed)
+        wins = sum(1 for c in closed if c.realized_pnl > 0)
+        losses = sum(1 for c in closed if c.realized_pnl < 0)
+        total = wins + losses
+        win_rate = (wins / total * 100) if total else 0
+
+        unrealized = sum(o.unrealized_pnl for o in open_positions if o.unrealized_pnl is not None)
+        combined = realized + unrealized
+
+        cost_basis = sum(o.cost_basis for o in open_positions)
+        mark_to_market_value = cost_basis + unrealized
+
+        closed_cost_basis = sum(c.cost_basis for c in closed)
+        closed_proceeds = closed_cost_basis + realized
+
+        total_value = pnl.starting_capital + realized + unrealized
+        return_pct = ((total_value - pnl.starting_capital) / pnl.starting_capital * 100) if pnl.starting_capital else 0
+
+        midnight_utc = datetime.datetime.now(datetime.timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+        seven_d_ago = datetime.datetime.now(datetime.timezone.utc).timestamp() - 604800.0
+        today_pnl = sum(c.realized_pnl for c in closed if c.exit_time >= midnight_utc)
+        rolling_7d_pnl = sum(c.realized_pnl for c in closed if c.exit_time >= seven_d_ago)
+
+        peak = max(pnl.starting_capital, total_value)  # approximation; real peak tracking lives elsewhere
+        drawdown_pct = ((peak - total_value) / peak * 100) if peak else 0
+
         return {
-            "realized": round(pnl.realized_pnl, 2),
-            "unrealized": round(pnl.unrealized_pnl, 2),
-            "combined": round(pnl.combined_pnl, 2),
+            "realized": round(realized, 2),
+            "unrealized": round(unrealized, 2),
+            "combined": round(combined, 2),
             "starting_capital": pnl.starting_capital,
-            "total_value": round(pnl.total_value, 2),
-            "return_pct": round(pnl.return_pct, 2),
-            "realized_wins": pnl.realized_wins,
-            "realized_losses": pnl.realized_losses,
-            "realized_win_rate": round(pnl.realized_win_rate, 3) if pnl.realized_win_rate else 0,
-            "today_pnl": round(pnl.today_pnl, 2),
-            "rolling_7d_pnl": round(pnl.rolling_7d_pnl, 2),
-            "open_positions": pnl.unrealized_count,
-            "current_drawdown_pct": round(pnl.current_drawdown_pct, 2),
-            "paper_mode": pnl.realized_pnl == 0 and pnl.realized_wins == 0,
-            "open_positions_cost_basis": cost_basis,
-            "open_positions_mark_to_market": mark_to_market_value,
-            "closed_cost_basis": closed_cost_basis,
-            "closed_proceeds": closed_proceeds,
+            "total_value": round(total_value, 2),
+            "return_pct": round(return_pct, 2),
+            "realized_wins": wins,
+            "realized_losses": losses,
+            "realized_win_rate": round(win_rate, 3),
+            "today_pnl": round(today_pnl, 2),
+            "rolling_7d_pnl": round(rolling_7d_pnl, 2),
+            "open_positions": len(open_positions),
+            "current_drawdown_pct": round(drawdown_pct, 2),
+            "paper_mode": realized == 0 and wins == 0,
+            "open_positions_cost_basis": round(cost_basis, 2),
+            "open_positions_mark_to_market": round(mark_to_market_value, 2),
+            "closed_cost_basis": round(closed_cost_basis, 2),
+            "closed_proceeds": round(closed_proceeds, 2),
         }
     except Exception as e:
         logger.error(f"get_live_pnl failed: {e}")
