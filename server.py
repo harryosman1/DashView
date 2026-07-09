@@ -223,17 +223,56 @@ def get_live_pnl():
         return {"error": str(e)}
 
 def get_live_pnl_by_wallet():
-    """Per-trader breakdown of live-tier P&L, built client-side from the
-    same CachedPnL.closed / open_positions_detail data get_live_pnl()
-    already uses in aggregate. Does not touch pnl_cache.py / bot core
-    code at all — pure read-only grouping of data that already exists."""
+    """Per-trader breakdown of live-tier P&L. Each wallet is shown with
+    its OWN starting_capital (from roster.yaml sizing.starting_capital)
+    as its standalone baseline — so each wallet's total_value reflects
+    performance from its own $600, not a shared pool. All live-tier
+    wallets are always included even if they have zero trades yet."""
     try:
         from src.pnl_cache import get_cached_pnl
         pnl = get_cached_pnl()
-        by_trader = {}
 
+        # Load ALL live-tier wallets from roster.yaml, including their
+        # per-wallet starting_capital and address. This is the source of
+        # truth for which wallets should appear — NOT pnl.closed, which
+        # only contains wallets that have already traded. We want zero-
+        # trade wallets to show up too (e.g. newly promoted wallets).
+        live_roster = []  # list of {name, address, starting_capital}
+        try:
+            import yaml as _yaml
+            roster_path = cfg.BOT_DIR / "config" / "roster.yaml"
+            if roster_path.exists():
+                roster = _yaml.safe_load(roster_path.read_text()) or []
+                if isinstance(roster, list):
+                    for w in roster:
+                        if w.get("tier") == "live":
+                            sizing = w.get("sizing") or {}
+                            live_roster.append({
+                                "name": w.get("name"),
+                                "address": w.get("address"),
+                                "starting_capital": float(sizing.get("starting_capital") or 600.0),
+                                "display_baseline": float(sizing.get("display_baseline") or 0) or None,
+                            })
+        except Exception as e:
+            logger.error(f"get_live_pnl_by_wallet: roster lookup failed: {e}")
+
+        # Dedupe by name — combined portfolios (e.g. ferrari_sportmaster)
+        # have two roster entries (one per address) but should show as one card
+        seen_names = set()
+        deduped = []
+        for w in live_roster:
+            if w["name"] not in seen_names:
+                seen_names.add(w["name"])
+                deduped.append(w)
+        live_roster = deduped
+        live_names = {w["name"] for w in live_roster}
+
+        # Aggregate P&L per trader from pnl cache
+        by_trader = {}
         for c in pnl.closed:
             t = c.trader
+            if t not in live_names:
+                continue
             if t not in by_trader:
                 by_trader[t] = {"realized": 0.0, "wins": 0, "losses": 0, "open_positions": 0, "unrealized": 0.0}
             by_trader[t]["realized"] += c.realized_pnl
@@ -244,61 +283,88 @@ def get_live_pnl_by_wallet():
 
         for o in pnl.open_positions_detail:
             t = o.trader
+            if t not in live_names:
+                continue
             if t not in by_trader:
                 by_trader[t] = {"realized": 0.0, "wins": 0, "losses": 0, "open_positions": 0, "unrealized": 0.0}
             by_trader[t]["open_positions"] += 1
             if o.unrealized_pnl is not None:
                 by_trader[t]["unrealized"] += o.unrealized_pnl
 
-        # Resolve trader NAME -> address via roster.yaml (the live-tier
-        # source of truth) so the frontend can act on these wallets (e.g.
-        # demote to shadow) without only having a display name to go on.
-        name_to_address = {}
-        name_to_tier = {}
-        try:
-            import yaml as _yaml
-            roster_path = cfg.BOT_DIR / "config" / "roster.yaml"
-            if roster_path.exists():
-                roster = _yaml.safe_load(roster_path.read_text()) or []
-                if isinstance(roster, list):
-                    for w in roster:
-                        nm = w.get("name")
-                        addr = w.get("address")
-                        if nm and addr:
-                            name_to_address[nm] = addr
-                        if nm:
-                            name_to_tier[nm] = w.get("tier")
-        except Exception as e:
-            logger.error(f"get_live_pnl_by_wallet: roster address lookup failed: {e}")
-
-        # Only show a wallet if it's CURRENTLY tier:live, OR it has open
-        # positions right now regardless of tier (an open position needs
-        # to stay visible until it resolves, even after demotion — see
-        # the established orphaned-position policy elsewhere in this
-        # project). A wallet with historical closed P&L but no open
-        # positions and no current live tier (e.g. fully demoted,
-        # nothing left open) should NOT show up here forever — that was
-        # the real bug (Sportmaster777, 0xc7e53a both lingering with
-        # zero open positions purely due to historical closed trades).
+        # Build result — one entry per live-tier wallet, always included
+        # even if zero trades. total_value computed against each wallet's
+        # OWN starting_capital for true standalone portfolio tracking.
         result = []
-        for trader, stats in by_trader.items():
-            is_currently_live = name_to_tier.get(trader) == "live"
+        for w in live_roster:
+            name = w["name"]
+            starting = w["starting_capital"]
+            display_start = w.get("display_baseline") or starting
+            stats = by_trader.get(name, {"realized": 0.0, "wins": 0, "losses": 0, "open_positions": 0, "unrealized": 0.0})
+            realized = stats["realized"]
+            unrealized = stats["unrealized"]
+            combined = realized + unrealized
+            total_value = starting + realized + unrealized
+            return_pct = ((total_value - display_start) / display_start * 100) if display_start else 0
+            wins = stats["wins"]
+            losses = stats["losses"]
+            total_closed = wins + losses
+            # Also include orphaned open positions from demoted wallets
+            # that resolved naturally (existing policy) — these still
+            # appear via the has_open check below.
             has_open = stats["open_positions"] > 0
-            if not (is_currently_live or has_open):
-                continue
-            total = stats["wins"] + stats["losses"]
+            # Per-wallet cost basis and mark-to-market for open positions
+            open_pos_for_trader = [o for o in pnl.open_positions_detail if o.trader == name]
+            open_cost_basis = sum(o.cost_basis for o in open_pos_for_trader)
+            open_mtm = open_cost_basis + unrealized
+            closed_for_trader = [c for c in pnl.closed if c.trader == name]
+            closed_cost = sum(c.cost_basis for c in closed_for_trader)
+            closed_proceeds = closed_cost + realized
             result.append({
-                "trader": trader,
-                "address": name_to_address.get(trader),
-                "realized": round(stats["realized"], 2),
-                "unrealized": round(stats["unrealized"], 2),
-                "combined": round(stats["realized"] + stats["unrealized"], 2),
-                "wins": stats["wins"],
-                "losses": stats["losses"],
-                "win_rate": round(stats["wins"] / total * 100, 1) if total else 0,
+                "trader": name,
+                "address": w["address"],
+                "starting_capital": display_start,
+                "realized": round(realized, 2),
+                "unrealized": round(unrealized, 2),
+                "combined": round(combined, 2),
+                "total_value": round(total_value, 2),
+                "return_pct": round(return_pct, 2),
+                "wins": wins,
+                "losses": losses,
+                "win_rate": round(wins / total_closed * 100, 1) if total_closed else 0,
                 "open_positions": stats["open_positions"],
+                "open_positions_cost_basis": round(open_cost_basis, 2),
+                "open_positions_mark_to_market": round(open_mtm, 2),
+                "closed_cost_basis": round(closed_cost, 2),
+                "closed_proceeds": round(closed_proceeds, 2),
             })
-        result.sort(key=lambda x: x["combined"], reverse=True)
+
+        # Also include any demoted wallets that still have orphaned open
+        # positions (existing policy: stay visible until they resolve).
+        for trader, stats in by_trader.items():
+            if trader in live_names:
+                continue
+            if stats["open_positions"] > 0:
+                realized = stats["realized"]
+                unrealized = stats["unrealized"]
+                wins = stats["wins"]
+                losses = stats["losses"]
+                total_closed = wins + losses
+                result.append({
+                    "trader": trader,
+                    "address": None,
+                    "starting_capital": 600.0,
+                    "realized": round(realized, 2),
+                    "unrealized": round(unrealized, 2),
+                    "combined": round(realized + unrealized, 2),
+                    "total_value": round(600.0 + realized + unrealized, 2),
+                    "return_pct": 0.0,
+                    "wins": wins,
+                    "losses": losses,
+                    "win_rate": round(wins / total_closed * 100, 1) if total_closed else 0,
+                    "open_positions": stats["open_positions"],
+                })
+
+        result.sort(key=lambda x: x["return_pct"], reverse=True)
         return result
     except Exception as e:
         logger.error(f"get_live_pnl_by_wallet failed: {e}")
@@ -1659,6 +1725,44 @@ def api_events():
                         _icon = "🟢 Big Win" if pnl > 0 else "🔴 Big Loss"
                         _sign = "+" if pnl > 0 else ""
                         push_queue.append((f"{_icon} — {trader}", f"{question} {_sign}{pnl:.0f}", "resolution"))
+
+            # Also tail paper_trades.jsonl for LIVE copy decisions
+            live_log_path = BOT_DIR / "logs" / "paper_trades.jsonl"
+            if live_log_path.exists():
+                with open(live_log_path, "rb") as f:
+                    f.seek(0, 2)
+                    file_size = f.tell()
+                    block = 8192
+                    data = b""
+                    lines_found = 0
+                    pos = file_size
+                    while pos > 0 and lines_found < 500:
+                        read_size = min(block, pos)
+                        pos -= read_size
+                        f.seek(pos)
+                        data = f.read(read_size) + data
+                        lines_found = data.count(b"\n")
+                    live_tail = data.decode("utf-8", errors="ignore").splitlines()[-500:]
+                for line in live_tail:
+                    try:
+                        d = json.loads(line)
+                    except Exception:
+                        continue
+                    ts = int(d.get("timestamp", 0))
+                    if ts <= since:
+                        continue
+                    if d.get("decision") == "copy" and str(d.get("their_side", "")).upper() == "BUY":
+                        trader = d.get("trader", "")
+                        outcome = d.get("outcome", "")
+                        price = d.get("their_price", 0)
+                        question = d.get("question", "") or d.get("slug", "")
+                        size = d.get("our_would_be_size", 0)
+                        events.append({"type": "live_copy", "timestamp": ts, "trader": trader, "question": question, "outcome": outcome, "price": price})
+                        push_queue.append((
+                            f"⚡ LIVE Copy — {trader}",
+                            f"{outcome} @ {price:.2f} | ${size:.2f} | {str(question)[:50]}",
+                            "live_copy"
+                        ))
 
             # Send pushes in a background thread so the HTTP response never blocks on them
             if push_queue:
