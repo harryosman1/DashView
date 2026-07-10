@@ -1491,7 +1491,26 @@ def load_push_subs():
 def save_push_subs(subs):
     PUSH_SUBS_PATH.write_text(json.dumps(subs, indent=2))
 
+def _push_enabled(tag):
+    """Gate pushes on user_settings.json notif toggles. Fail-open:
+    a settings read error should deliver, never silently eat alerts."""
+    try:
+        p = cfg.DASHVIEW_HOME / "user_settings.json"
+        s = json.loads(p.read_text()) if p.exists() else {}
+        if not s.get("notif_enabled", True):
+            return False
+        n = s.get("notif", {})
+        key = {"copied": "copied", "resolution_win": "big_win",
+               "resolution_loss": "big_loss", "live_copy": "live_trade",
+               "scan": "scan_complete"}.get(tag)
+        return n.get(key, True) if key else True
+    except Exception:
+        return True
+
+
 def send_push_notification(title, body, tag="dashview"):
+    if not _push_enabled(tag):
+        return
     try:
         from pywebpush import webpush, WebPushException
         subs = load_push_subs()
@@ -1724,7 +1743,7 @@ def api_events():
                         events.append({"type": "big_win" if pnl > 0 else "big_loss", "timestamp": ts, "trader": trader, "question": question, "outcome": outcome, "pnl": round(pnl, 2)})
                         _icon = "🟢 Big Win" if pnl > 0 else "🔴 Big Loss"
                         _sign = "+" if pnl > 0 else ""
-                        push_queue.append((f"{_icon} — {trader}", f"{question} {_sign}{pnl:.0f}", "resolution"))
+                        push_queue.append((f"{_icon} — {trader}", f"{question} {_sign}{pnl:.0f}", "resolution_win" if pnl > 0 else "resolution_loss"))
 
             # Also tail paper_trades.jsonl for LIVE copy decisions
             live_log_path = BOT_DIR / "logs" / "paper_trades.jsonl"
