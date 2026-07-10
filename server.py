@@ -1502,7 +1502,7 @@ def send_push_notification(title, body, tag="dashview"):
                     subscription_info=sub,
                     data=json.dumps({"title": title, "body": body, "tag": tag}),
                     vapid_private_key=VAPID_PRIVATE_KEY_PATH,
-                    vapid_claims={"sub": f"mailto:admin@{cfg.DOMAIN}"}
+                    vapid_claims={"sub": "mailto:admin@atlasbot.duckdns.org"}
                 )
             except WebPushException as e:
                 if e.response and e.response.status_code in (404, 410):
