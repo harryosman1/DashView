@@ -133,6 +133,17 @@ input:checked+.slider:before{transform:translateX(18px);background:var(--green)}
 .btn{flex:1;padding:9px 6px;border-radius:var(--radius-sm);font-size:12px;font-weight:600;font-family:var(--sans);cursor:pointer;border:1px solid var(--border);-webkit-tap-highlight-color:transparent}
 .btn-watch{background:var(--blue-dim);color:var(--blue);border-color:var(--blue)}
 .btn-shadow{background:var(--surface2);color:var(--text)}
+.scanner-card{background:var(--surface2);border-radius:10px;padding:10px 12px;margin-bottom:8px;border-left:3px solid var(--surface2)}
+.scanner-card.v-PROMOTE_CANDIDATE{border-left-color:var(--green)}
+.scanner-card.v-WATCH{border-left-color:#4da6ff}
+.scanner-card.v-TOO_EARLY{border-left-color:#888}
+.scanner-card.v-HOLD{border-left-color:#e0a030}
+.scanner-card.v-DEMOTE_CANDIDATE{border-left-color:#e05050}
+.scanner-verdict{font-size:11px;font-weight:700;letter-spacing:.5px;opacity:.85}
+.scanner-reason{font-size:12px;opacity:.75;margin-top:2px}
+.scanner-stats{font-size:12px;margin-top:4px;opacity:.9}
+.scanner-note{font-size:11px;opacity:.55;margin:8px 0 14px}
+.scanner-toggle{display:flex;justify-content:space-between;align-items:center;background:var(--surface2);border-radius:10px;padding:10px 14px;margin-bottom:12px;cursor:pointer;user-select:none}
 .btn-live{background:var(--green-dim);color:var(--green);border-color:var(--green)}
 
 /* Import/export buttons */
@@ -167,6 +178,16 @@ input:checked+.slider:before{transform:translateX(18px);background:var(--green)}
       <div class="summary-item"><div class="summary-val" id="sum-resolved">—</div><div class="summary-lbl">Resolved</div></div>
       <div class="summary-item"><div class="summary-val" id="sum-positions">—</div><div class="summary-lbl">Open Pos</div></div>
     </div>
+    <div class="scanner-toggle" onclick="toggleScanner()" id="scanner-toggle">
+      <span>🔬 <b>Scanner</b> <span id="scanner-summary" style="opacity:.7;font-size:12px"></span></span>
+      <span id="scanner-chevron" style="opacity:.6">▸</span>
+    </div>
+    <div id="scanner-panel" style="display:none">
+      <button class="btn btn-shadow" style="width:100%;margin:8px 0;font-size:12px" id="scanner-refresh-btn" onclick="refreshScanner()">↻ Rescan</button>
+      <div id="scanner-results"></div>
+      <div class="scanner-note" id="scanner-note"></div>
+    </div>
+
     <p class="section-label">Shadow Roster</p>
     <div id="wallet-list"><div class="wallet-card"><div class="skeleton" style="width:60%;margin-bottom:8px;"></div><div class="skeleton" style="width:40%;"></div></div></div>
     <p class="section-label">Bot Status</p>
@@ -179,27 +200,6 @@ input:checked+.slider:before{transform:translateX(18px);background:var(--green)}
   <!-- LIVE TAB -->
   <div class="page" id="page-live">
     <div id="live-banner-area"></div>
-    <p class="section-label">Live Portfolio</p>
-    <div class="summary-bar">
-      <div class="summary-item"><div class="summary-val" id="live-combined">—</div><div class="summary-lbl">Combined</div></div>
-      <div class="summary-item"><div class="summary-val" id="live-realized">—</div><div class="summary-lbl">Realized</div></div>
-      <div class="summary-item"><div class="summary-val" id="live-unrealized">—</div><div class="summary-lbl">Unrealized</div></div>
-    </div>
-    <p class="section-label">Performance</p>
-    <div class="screener-card" id="live-perf-card">
-      <div class="screener-row"><span class="screener-label">Starting capital</span><span class="screener-val" id="live-capital">—</span></div>
-      <div class="screener-row"><span class="screener-label">Total value</span><span class="screener-val" id="live-total">—</span></div>
-      <div class="screener-row"><span class="screener-label">Open positions cost basis</span><span class="screener-val" id="live-cost-basis">—</span></div>
-      <div class="screener-row"><span class="screener-label">Open positions value</span><span class="screener-val" id="live-mtm">—</span></div>
-      <div class="screener-row"><span class="screener-label">Closed positions cost basis</span><span class="screener-val" id="live-closed-cost-basis">—</span></div>
-      <div class="screener-row"><span class="screener-label">Closed positions proceeds</span><span class="screener-val" id="live-closed-proceeds">—</span></div>
-      <div class="screener-row"><span class="screener-label">Return</span><span class="screener-val" id="live-return">—</span></div>
-      <div class="screener-row"><span class="screener-label">Today P&L</span><span class="screener-val" id="live-today">—</span></div>
-      <div class="screener-row"><span class="screener-label">7d P&L</span><span class="screener-val" id="live-7d">—</span></div>
-      <div class="screener-row"><span class="screener-label">Win rate</span><span class="screener-val" id="live-wr">—</span></div>
-      <div class="screener-row"><span class="screener-label">W / L</span><span class="screener-val" id="live-wl">—</span></div>
-      <div class="screener-row" style="border-bottom:none;"><span class="screener-label">Drawdown</span><span class="screener-val" id="live-dd">—</span></div>
-    </div>
     <p class="section-label">Live Wallets</p>
     <div id="live-wallet-list"><div class="empty-state"><div class="empty-icon">⏳</div>Loading…</div></div>
   </div>
@@ -561,8 +561,57 @@ const INITIALS=n=>n.split(/[_\s]/).map(w=>w[0]||'').join('').toUpperCase().slice
 function fmt(v){if(v===0)return'$0';const abs=Math.abs(v);const s=abs>=1000?`$${(abs/1000).toFixed(1)}K`:`$${abs.toFixed(0)}`;return v<0?`-${s}`:`+${s}`;}
 function colorClass(v){if(v>0)return'pos';if(v<0)return'neg';return'neu';}
 function timeAgo(ts){const d=Math.floor((Date.now()/1000)-ts);if(d<60)return`${d}s ago`;if(d<3600)return`${Math.floor(d/60)}m ago`;if(d<86400)return`${Math.floor(d/3600)}h ago`;return`${Math.floor(d/86400)}d ago`;}
-function showPage(name){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));document.getElementById(`page-${name}`).classList.add('active');document.getElementById(`nav-${name}`).classList.add('active');if(name==='chart'){loadChart();}if(name==='settings'){loadConfig();}}
+function showPage(name){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));document.getElementById(`page-${name}`).classList.add('active');document.getElementById(`nav-${name}`).classList.add('active');if(name==='chart'){loadChart();}if(name==='shadow'){loadScanner(false);}if(name==='settings'){loadConfig();}}
 
+const VERDICT_ICONS={PROMOTE_CANDIDATE:'🚀',WATCH:'👁',TOO_EARLY:'⏳',HOLD:'✋',DEMOTE_CANDIDATE:'📉'};
+function toggleScanner(){
+  const p=document.getElementById('scanner-panel');
+  const c=document.getElementById('scanner-chevron');
+  const open=p.style.display==='none';
+  p.style.display=open?'block':'none';
+  c.textContent=open?'▾':'▸';
+}
+let scannerLoaded=false;
+async function loadScanner(force){
+  if(scannerLoaded&&!force)return;
+  const el=document.getElementById('scanner-results');
+  try{
+    const r=await fetch('/api/scanner'+(force?'?refresh=1':''));
+    const d=await r.json();
+    if(!d.ok){el.innerHTML='<div class="empty-state">Scanner error: '+(d.error||'?')+'</div>';return;}
+    renderScanner(d);
+    scannerLoaded=true;
+  }catch(e){el.innerHTML='<div class="empty-state">Scanner unreachable</div>';}
+}
+async function refreshScanner(){
+  const btn=document.getElementById('scanner-refresh-btn');
+  btn.textContent='⟳ Scanning…';btn.disabled=true;
+  await loadScanner(true);
+  btn.textContent='↻ Rescan';btn.disabled=false;
+}
+function renderScanner(d){
+  const el=document.getElementById('scanner-results');
+  const order=['PROMOTE_CANDIDATE','WATCH','TOO_EARLY','HOLD','DEMOTE_CANDIDATE'];
+  let html='';
+  order.forEach(v=>{
+    const grp=d.wallets.filter(w=>w.verdict===v);
+    if(!grp.length)return;
+    html+='<div style="font-size:12px;font-weight:600;margin:10px 0 6px;opacity:.7">'+VERDICT_ICONS[v]+' '+v.replace('_',' ')+' ('+grp.length+')</div>';
+    grp.forEach(w=>{
+      const flags=(w.flags&&w.flags.length)?' <span style="opacity:.5">['+w.flags.join(',')+']</span>':'';
+      html+='<div class="scanner-card v-'+v+'">'
+        +'<div><b>'+w.name+'</b>'+flags+'</div>'
+        +'<div class="scanner-stats">'+w.games+'g · '+w.wr+'% WR · $'+w.res_pnl+' ($'+w.avg_game+'/g) · silent '+w.silent_days+'d</div>'
+        +'<div class="scanner-reason">'+w.reason+'</div>'
+        +'</div>';
+    });
+  });
+  el.innerHTML=html||'<div class="empty-state">No shadow wallets</div>';
+  document.getElementById('scanner-note').textContent=d.denomination_note+' · scanned '+d.scanned_at_iso.slice(0,16).replace('T',' ')+' UTC';
+  const counts={};d.wallets.forEach(w=>counts[w.verdict]=(counts[w.verdict]||0)+1);
+  const sumOrder=['PROMOTE_CANDIDATE','WATCH','HOLD','DEMOTE_CANDIDATE','TOO_EARLY'];
+  document.getElementById('scanner-summary').textContent=sumOrder.filter(v=>counts[v]).map(v=>VERDICT_ICONS[v]+counts[v]).join(' ');
+}
 function renderWallets(wallets){
   const el=document.getElementById('wallet-list');
   if(!wallets||wallets.length===0){el.innerHTML='<div class="empty-state"><div class="empty-icon">👻</div>No shadow wallets</div>';return;}
@@ -587,50 +636,133 @@ function renderWallets(wallets){
 }
 
 function renderLive(live){
-  const paper=live.paper_mode;
-  document.getElementById('live-banner-area').innerHTML=paper
-    ?'<div class="info-banner">📋 Paper trading mode — no real orders placed yet. Live P&L will populate automatically after June 27th when you go live.</div>'
-    :'<div class="live-banner">🟢 Live trading active — real P&L shown below.</div>';
-  document.getElementById('live-combined').innerHTML=`<span class="${colorClass(live.combined)}">${fmt(live.combined)}</span>`;
-  document.getElementById('live-realized').innerHTML=`<span class="${colorClass(live.realized)}">${fmt(live.realized)}</span>`;
-  document.getElementById('live-unrealized').innerHTML=`<span class="${colorClass(live.unrealized)}">${fmt(live.unrealized)}</span>`;
-  document.getElementById('live-capital').textContent=`$${live.starting_capital?.toFixed(0)||'—'}`;
-  document.getElementById('live-total').innerHTML=`<span class="${colorClass((live.total_value||0)-live.starting_capital)}">${live.total_value?'$'+live.total_value.toFixed(0):'—'}</span>`;
-  document.getElementById('live-cost-basis').textContent=live.open_positions_cost_basis!=null?'$'+live.open_positions_cost_basis.toFixed(2):'—';
-  document.getElementById('live-mtm').innerHTML=`<span class="${colorClass((live.open_positions_mark_to_market||0)-(live.open_positions_cost_basis||0))}">${live.open_positions_mark_to_market!=null?'$'+live.open_positions_mark_to_market.toFixed(2):'—'}</span>`;
-  document.getElementById('live-closed-cost-basis').textContent=live.closed_cost_basis!=null?'$'+live.closed_cost_basis.toFixed(2):'—';
-  document.getElementById('live-closed-proceeds').innerHTML=`<span class="${colorClass((live.closed_proceeds||0)-(live.closed_cost_basis||0))}">${live.closed_proceeds!=null?'$'+live.closed_proceeds.toFixed(2):'—'}</span>`;
-  document.getElementById('live-return').innerHTML=`<span class="${colorClass(live.return_pct||0)}">${live.return_pct!=null?(live.return_pct>0?'+':'')+live.return_pct.toFixed(2)+'%':'—'}</span>`;
-  document.getElementById('live-today').innerHTML=`<span class="${colorClass(live.today_pnl||0)}">${fmt(live.today_pnl||0)}</span>`;
-  document.getElementById('live-7d').innerHTML=`<span class="${colorClass(live.rolling_7d_pnl||0)}">${fmt(live.rolling_7d_pnl||0)}</span>`;
-  document.getElementById('live-wr').textContent=live.realized_win_rate?`${live.realized_win_rate.toFixed(0)}%`:'—';
-  document.getElementById('live-wl').textContent=`${live.realized_wins||0} W / ${live.realized_losses||0} L`;
-  document.getElementById('live-dd').innerHTML=`<span class="${(live.current_drawdown_pct||0)>10?'neg':'neu'}">${live.current_drawdown_pct!=null?live.current_drawdown_pct.toFixed(1)+'%':'—'}</span>`;
+  // Aggregate live_pnl data is now stored on window for use in wallet
+  // detail overlays (e.g. cost basis, drawdown) but no longer rendered
+  // directly on the Live tab — each wallet shows its own standalone stats.
+  window._livePnl = live;
+  const ba=document.getElementById('live-banner-area');
+  if(ba){
+    const paper=live.paper_mode;
+    ba.innerHTML=paper
+      ?'<div class="info-banner">📋 Paper trading mode — no real orders placed yet.</div>'
+      :'<div class="live-banner">🟢 Live trading active — real P&L shown below.</div>';
+  }
 }
 
 function renderLiveWallets(wallets){
   const el=document.getElementById('live-wallet-list');
   if(!el) return;
   if(!wallets||wallets.length===0){
-    el.innerHTML='<div class="empty-state"><div class="empty-icon">👥</div>No live-tier activity yet</div>';
+    el.innerHTML='<div class="empty-state"><div class="empty-icon">👥</div>No live-tier wallets configured</div>';
     return;
   }
+  window._liveWallets = wallets;
   el.innerHTML=wallets.map((w,i)=>{
     const av=AVATARS[i%AVATARS.length];const init=INITIALS(w.trader);
-    return `<div class="wallet-card">
+    const hasActivity = w.wins>0||w.losses>0||w.open_positions>0;
+    const statusText = hasActivity ? `${w.open_positions} open · ${w.wins}W/${w.losses}L` : 'Waiting for first trade';
+    const returnColor = w.return_pct>0?'pos':w.return_pct<0?'neg':'';
+    return `<div class="wallet-card" style="cursor:pointer;" onclick="showWalletDetail(window._liveWallets[${i}])">
       <div class="wallet-top">
-        <a href="https://polymarket.com/profile/${w.address||''}" target="_blank" style="text-decoration:none;color:inherit;flex:1;"><div class="wallet-left"><div class="wallet-avatar ${av}">${init}</div><div><div class="wallet-name">${escapeHtml(w.trader)}</div><div class="wallet-status">${w.open_positions} open positions</div></div></div></a>
-        <div class="wallet-combined ${colorClass(w.combined)}">${fmt(w.combined)}</div>
+        <div class="wallet-left" style="flex:1;">
+          <div class="wallet-avatar ${av}">${init}</div>
+          <div>
+            <div class="wallet-name">${escapeHtml(w.trader)}</div>
+            <div class="wallet-status">${statusText}</div>
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <div class="${returnColor}" style="font-size:18px;font-weight:700;">$${w.total_value!=null?w.total_value.toFixed(2):'600.00'}</div>
+          <div class="${returnColor}" style="font-size:11px;">${w.return_pct>=0?'+':''}${w.return_pct!=null?w.return_pct.toFixed(2):'0.00'}%</div>
+        </div>
       </div>
       <div class="wallet-grid">
         <div class="wallet-stat"><div class="wallet-stat-val ${colorClass(w.realized)}">${fmt(w.realized)}</div><div class="wallet-stat-lbl">Realized</div></div>
         <div class="wallet-stat"><div class="wallet-stat-val ${colorClass(w.unrealized)}">${fmt(w.unrealized)}</div><div class="wallet-stat-lbl">Unrealized</div></div>
-        <div class="wallet-stat"><div class="wallet-stat-val">${w.win_rate}%</div><div class="wallet-stat-lbl">Win Rate</div></div>
+        <div class="wallet-stat"><div class="wallet-stat-val">${hasActivity?w.win_rate+'%':'—'}</div><div class="wallet-stat-lbl">Win Rate</div></div>
       </div>
-      <div style="font-size:11px;color:var(--muted);margin-top:8px;text-align:center;">${w.wins}W / ${w.losses}L resolved</div>
-      ${w.address?`<div style="display:flex;gap:6px;margin-top:10px;"><button onclick="demoteLiveToShadow('${w.address}','${escapeHtml(w.trader)}',this)" style="flex:1;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);font-size:11px;font-weight:600;font-family:var(--sans);cursor:pointer;">↓ Demote to Shadow</button></div>`:''}
+      ${w.address?`<div style="display:flex;gap:6px;margin-top:10px;" onclick="event.stopPropagation()">
+        <a href="https://polymarket.com/profile/${w.address}" target="_blank" style="flex:1;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);font-size:11px;font-weight:600;font-family:var(--sans);cursor:pointer;text-align:center;text-decoration:none;">↗ Profile</a>
+        <button onclick="demoteLiveToShadow('${w.address}','${escapeHtml(w.trader)}',this)" style="flex:1;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);font-size:11px;font-weight:600;font-family:var(--sans);cursor:pointer;">↓ Demote</button>
+      </div>`:''}
     </div>`;
   }).join('');
+}
+
+function showWalletDetail(w){
+  const existing=document.getElementById('wallet-detail-overlay');
+  if(existing) existing.remove();
+  const hasActivity = w.wins>0||w.losses>0||w.open_positions>0;
+  const returnColor = w.return_pct>0?'pos':w.return_pct<0?'neg':'';
+  const ov=document.createElement('div');
+  ov.id='wallet-detail-overlay';
+  ov.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
+  ov.innerHTML=`<div style="background:var(--surface1);border:1px solid var(--border);border-radius:var(--radius);width:100%;max-width:480px;max-height:85vh;overflow-y:auto;padding:20px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div style="font-size:18px;font-weight:700;">${escapeHtml(w.trader)}</div>
+      <button onclick="document.getElementById('wallet-detail-overlay').remove()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+      <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:12px;text-align:center;">
+        <div class="${returnColor}" style="font-size:22px;font-weight:700;">$${w.total_value!=null?w.total_value.toFixed(2):'600.00'}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;">Portfolio Value</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:12px;text-align:center;">
+        <div class="${returnColor}" style="font-size:22px;font-weight:700;">${w.return_pct>=0?'+':''}${w.return_pct!=null?w.return_pct.toFixed(2):'0.00'}%</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;">Return</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px;">
+      <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:10px;text-align:center;">
+        <div style="font-size:16px;font-weight:600;${w.realized>=0?'color:var(--pos)':'color:var(--neg)'};">${fmt(w.realized)}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px;">Realized</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:10px;text-align:center;">
+        <div style="font-size:16px;font-weight:600;${w.unrealized>=0?'color:var(--pos)':'color:var(--neg)'};">${fmt(w.unrealized)}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px;">Unrealized</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:10px;text-align:center;">
+        <div style="font-size:16px;font-weight:600;">${w.open_positions}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px;">Open</div>
+      </div>
+    </div>
+    <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:12px;margin-bottom:16px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+        <span style="font-size:12px;color:var(--muted);">Win Rate</span>
+        <span style="font-size:12px;font-weight:600;">${hasActivity?w.win_rate+'%':'—'}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+        <span style="font-size:12px;color:var(--muted);">Resolved Trades</span>
+        <span style="font-size:12px;font-weight:600;">${w.wins}W / ${w.losses}L</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+        <span style="font-size:12px;color:var(--muted);">Starting Capital</span>
+        <span style="font-size:12px;font-weight:600;">$${w.starting_capital!=null?w.starting_capital.toFixed(2):'600.00'}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+        <span style="font-size:12px;color:var(--muted);">Open Cost Basis</span>
+        <span style="font-size:12px;font-weight:600;">$${w.open_positions_cost_basis!=null?w.open_positions_cost_basis.toFixed(2):'0.00'}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+        <span style="font-size:12px;color:var(--muted);">Open Mark-to-Market</span>
+        <span style="font-size:12px;font-weight:600;" class="${(w.open_positions_mark_to_market||0)>=(w.open_positions_cost_basis||0)?'pos':'neg'}">$${w.open_positions_mark_to_market!=null?w.open_positions_mark_to_market.toFixed(2):'0.00'}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+        <span style="font-size:12px;color:var(--muted);">Closed Cost Basis</span>
+        <span style="font-size:12px;font-weight:600;">$${w.closed_cost_basis!=null?w.closed_cost_basis.toFixed(2):'0.00'}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;">
+        <span style="font-size:12px;color:var(--muted);">Closed Proceeds</span>
+        <span style="font-size:12px;font-weight:600;" class="${(w.closed_proceeds||0)>=(w.closed_cost_basis||0)?'pos':'neg'}">$${w.closed_proceeds!=null?w.closed_proceeds.toFixed(2):'0.00'}</span>
+      </div>
+    </div>
+    ${!hasActivity?'<div style="text-align:center;color:var(--muted);font-size:13px;padding:12px;">No trades yet — waiting for first copy decision</div>':''}
+    ${w.address?`<div style="display:flex;gap:8px;">
+      <a href="https://polymarket.com/profile/${w.address}" target="_blank" style="flex:1;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--fg);font-size:12px;font-weight:600;font-family:var(--sans);cursor:pointer;text-align:center;text-decoration:none;">↗ Polymarket Profile</a>
+    </div>`:''}
+  </div>`;
+  ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
+  document.body.appendChild(ov);
 }
 
 function renderSizing(sz){

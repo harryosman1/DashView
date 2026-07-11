@@ -1866,6 +1866,24 @@ def run_https():
     logger.info(f"DashView HTTPS running at https://{domain}:{args.port}")
     app.run(host=args.host, port=args.port, ssl_context=context, debug=False, threaded=True)
 
+
+@app.route("/api/scanner")
+def api_scanner():
+    """Shadow scanner verdicts. Serves cached result; ?refresh=1 recomputes.
+    Scan reads the full shadow log (~1-2s) — cache-first keeps polls cheap."""
+    from flask import request as _req
+    import scanner as _scanner
+    try:
+        if _req.args.get("refresh") == "1" or not _scanner.CACHE_PATH.exists():
+            result = _scanner.scan_and_cache()
+        else:
+            result = json.loads(_scanner.CACHE_PATH.read_text())
+        return jsonify({"ok": True, **result})
+    except Exception as e:
+        logger.error(f"api_scanner failed: {e}")
+        return jsonify({"ok": False, "error": str(e)})
+
+
 if __name__ == "__main__":
     import ssl as _ssl
     parser = argparse.ArgumentParser()
