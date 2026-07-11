@@ -252,6 +252,7 @@ def get_live_pnl_by_wallet():
                                 "address": w.get("address"),
                                 "starting_capital": float(sizing.get("starting_capital") or 600.0),
                                 "display_baseline": float(sizing.get("display_baseline") or 0) or None,
+                                "base_usd": float(sizing.get("base_usd") or 0) or None,
                             })
         except Exception as e:
             logger.error(f"get_live_pnl_by_wallet: roster lookup failed: {e}")
@@ -323,6 +324,7 @@ def get_live_pnl_by_wallet():
                 "trader": name,
                 "address": w["address"],
                 "starting_capital": display_start,
+                "base_usd": w.get("base_usd"),
                 "realized": round(realized, 2),
                 "unrealized": round(unrealized, 2),
                 "combined": round(combined, 2),
@@ -1502,7 +1504,7 @@ def _push_enabled(tag):
         n = s.get("notif", {})
         key = {"copied": "copied", "resolution_win": "big_win",
                "resolution_loss": "big_loss", "live_copy": "live_trade",
-               "scan": "scan_complete"}.get(tag)
+               "scan": "scan_complete", "update_available": "update_available"}.get(tag)
         return n.get(key, True) if key else True
     except Exception:
         return True

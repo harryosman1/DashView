@@ -42,6 +42,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--sans);min-hei
 .wallet-status{font-size:10px;color:var(--muted);margin-top:2px}
 .wallet-combined{font-family:var(--mono);font-size:17px;font-weight:500;text-align:right}
 .wallet-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.wallet-grid.four{grid-template-columns:1fr 1fr 1fr 1fr}
 .wallet-stat{background:var(--surface2);border-radius:var(--radius-sm);padding:8px 10px}
 .wallet-stat-val{font-family:var(--mono);font-size:13px;font-weight:500;margin-bottom:2px}
 .wallet-stat-lbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px}
@@ -676,9 +677,10 @@ function renderLiveWallets(wallets){
           <div class="${returnColor}" style="font-size:11px;">${w.return_pct>=0?'+':''}${w.return_pct!=null?w.return_pct.toFixed(2):'0.00'}%</div>
         </div>
       </div>
-      <div class="wallet-grid">
+      <div class="wallet-grid four">
         <div class="wallet-stat"><div class="wallet-stat-val ${colorClass(w.realized)}">${fmt(w.realized)}</div><div class="wallet-stat-lbl">Realized</div></div>
         <div class="wallet-stat"><div class="wallet-stat-val ${colorClass(w.unrealized)}">${fmt(w.unrealized)}</div><div class="wallet-stat-lbl">Unrealized</div></div>
+        <div class="wallet-stat"><div class="wallet-stat-val">${w.base_usd!=null?'$'+w.base_usd.toFixed(2):'—'}</div><div class="wallet-stat-lbl">Bet Size</div></div>
         <div class="wallet-stat"><div class="wallet-stat-val">${hasActivity?w.win_rate+'%':'—'}</div><div class="wallet-stat-lbl">Win Rate</div></div>
       </div>
       ${w.address?`<div style="display:flex;gap:6px;margin-top:10px;" onclick="event.stopPropagation()">
