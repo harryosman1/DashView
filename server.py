@@ -1886,6 +1886,104 @@ def api_scanner():
         return jsonify({"ok": False, "error": str(e)})
 
 
+
+@app.route("/api/golive")
+def api_golive():
+    """Go-Live Gate verdicts. Cache-first; ?refresh=1 recomputes."""
+    from flask import request as _req
+    import golive_gate as _gate
+    try:
+        if _req.args.get("refresh") == "1" or not _gate.CACHE.exists():
+            result = _gate.evaluate()
+        else:
+            result = json.loads(_gate.CACHE.read_text())
+        return jsonify({"ok": True, **result})
+    except Exception as e:
+        logger.error(f"api_golive failed: {e}")
+        return jsonify({"ok": False, "error": str(e)})
+
+
+@app.route("/api/optimizer")
+def api_optimizer():
+    """Parameter optimizer analysis. Cache-first; ?refresh=1 recomputes."""
+    from flask import request as _req
+    import optimizer as _opt
+    try:
+        if _req.args.get("refresh") == "1" or not _opt.CACHE.exists():
+            result = _opt.analyze()
+        else:
+            result = json.loads(_opt.CACHE.read_text())
+        return jsonify({"ok": True, **result})
+    except Exception as e:
+        logger.error(f"api_optimizer failed: {e}")
+        return jsonify({"ok": False, "error": str(e)})
+
+
+
+@app.route("/api/optimizer/apply", methods=["POST"])
+def api_optimizer_apply():
+    """Apply ONE optimizer recommendation. Body: {wallet, param, suggest}.
+    Two-phase: ?confirm=0 (default) returns the exact config diff without
+    writing; ?confirm=1 writes live_sizing_targets.yaml, appends
+    config_history.json, runs the rebalancer. Only base_usd->sizing-pct
+    is currently appliable; everything else returns not_appliable."""
+    from flask import request as _req
+    import re as _re, subprocess as _sub
+    try:
+        body = _req.get_json(force=True)
+        wallet = body.get("wallet"); param = body.get("param")
+        suggest = float(body.get("suggest") or 0)
+        if param != "base_usd" or not wallet or suggest <= 0:
+            return jsonify({"ok": False, "error": "only base_usd recs are appliable in v1"})
+
+        # translate suggested $ to a sizing fraction of the wallet's standalone capital
+        import yaml as _yaml
+        roster = _yaml.safe_load(open("/opt/polymarket-bot/config/roster.yaml"))
+        entry = next((e for e in roster if e.get("name") == wallet), None)
+        if not entry:
+            return jsonify({"ok": False, "error": f"{wallet} not in roster"})
+        # capital = starting + realized: approximate with rebalancer's own view
+        # by reading current base and current pct from targets file
+        tgt_path = "/opt/polymarket-bot/config/live_sizing_targets.yaml"
+        tgt_src = open(tgt_path).read()
+        m = _re.search(rf"^(  {_re.escape(wallet)}: )([0-9.]+)(.*)$", tgt_src, _re.M)
+        if not m:
+            return jsonify({"ok": False, "error": f"{wallet} not in sizing targets"})
+        cur_pct = float(m.group(2))
+        cur_base = float((entry.get("sizing") or {}).get("base_usd") or 0)
+        if not cur_base:
+            return jsonify({"ok": False, "error": "current base_usd unknown"})
+        implied_capital = cur_base / cur_pct
+        new_pct = round(suggest / implied_capital, 4)
+
+        diff = {"file": "live_sizing_targets.yaml", "wallet": wallet,
+                "current_pct": cur_pct, "new_pct": new_pct,
+                "current_base": cur_base, "target_base": suggest}
+        if _req.args.get("confirm") != "1":
+            return jsonify({"ok": True, "phase": "preview", "diff": diff})
+
+        new_line = f"{m.group(1)}{new_pct}  # optimizer-applied {datetime.now().strftime('%Y-%m-%d')}: {cur_pct} -> {new_pct} (target ${suggest}/bet)"
+        tgt_new = tgt_src[:m.start()] + new_line + tgt_src[m.end():]
+        open(tgt_path, "w").write(tgt_new)
+
+        hist_path = "/opt/dashview/config_history.json"
+        hist = json.loads(open(hist_path).read())
+        hist.setdefault(wallet, []).append({
+            "date": datetime.now().strftime("%Y-%m-%d"),
+            "change": f"optimizer apply: sizing {cur_pct} -> {new_pct} (target ${suggest}/bet)"})
+        open(hist_path, "w").write(json.dumps(hist, indent=1))
+
+        reb = _sub.run(["/opt/polymarket-bot/.venv/bin/python3",
+                        "/opt/polymarket-bot/scripts/rebalance_sizing.py"],
+                       capture_output=True, text=True, timeout=120,
+                       cwd="/opt/polymarket-bot")
+        return jsonify({"ok": True, "phase": "applied", "diff": diff,
+                        "rebalancer_tail": reb.stdout.strip().split("\n")[-3:]})
+    except Exception as e:
+        logger.error(f"apply failed: {e}")
+        return jsonify({"ok": False, "error": str(e)})
+
+
 if __name__ == "__main__":
     import ssl as _ssl
     parser = argparse.ArgumentParser()

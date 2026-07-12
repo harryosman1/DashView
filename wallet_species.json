@@ -1,0 +1,18 @@
+{
+ "_doc": "Wallet species for gate/optimizer criteria routing. longshot: sub-50% game-WR with rare asymmetric wins is NORMAL \u2014 gate on avg/game + jackpot count, not WR. firehose: emits 100s of decisions/day, low copy-rate is the FILTERS WORKING \u2014 gate capture on capital+liquidity health only. grinder: steady high-WR \u2014 standard criteria. longhold: multi-day positions.",
+ "ferrarichampions2026": {
+  "species": "longshot_firehose"
+ },
+ "Sportmaster777": {
+  "species": "grinder"
+ },
+ "Sportmaster777_wide": {
+  "species": "grinder"
+ },
+ "dv-pm": {
+  "species": "longhold"
+ },
+ "Rin2x": {
+  "species": "grinder"
+ }
+}

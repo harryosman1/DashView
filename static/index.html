@@ -200,6 +200,22 @@ input:checked+.slider:before{transform:translateX(18px);background:var(--green)}
 
   <!-- LIVE TAB -->
   <div class="page" id="page-live">
+    <div class="scanner-toggle" onclick="toggleTool('golive')" id="golive-toggle">
+      <span>🎯 <b>Go-Live Gate</b> <span id="golive-summary" style="opacity:.7;font-size:12px"></span></span>
+      <span id="golive-chevron" style="opacity:.6">▸</span>
+    </div>
+    <div id="golive-panel" style="display:none">
+      <button class="btn btn-shadow" style="width:100%;margin:8px 0;font-size:12px" onclick="refreshTool('golive',this)">↻ Re-evaluate</button>
+      <div id="golive-results"></div>
+    </div>
+    <div class="scanner-toggle" onclick="toggleTool('optimizer')" id="optimizer-toggle">
+      <span>⚙️ <b>Optimizer</b> <span id="optimizer-summary" style="opacity:.7;font-size:12px"></span></span>
+      <span id="optimizer-chevron" style="opacity:.6">▸</span>
+    </div>
+    <div id="optimizer-panel" style="display:none">
+      <button class="btn btn-shadow" style="width:100%;margin:8px 0;font-size:12px" onclick="refreshTool('optimizer',this)">↻ Re-analyze</button>
+      <div id="optimizer-results"></div>
+    </div>
     <div id="live-banner-area"></div>
     <p class="section-label">Live Wallets</p>
     <div id="live-wallet-list"><div class="empty-state"><div class="empty-icon">⏳</div>Loading…</div></div>
@@ -650,6 +666,76 @@ function renderLive(live){
   }
 }
 
+const toolLoaded={golive:false,optimizer:false};
+async function applyRec(btn,wallet,param,suggest){
+  if(btn.dataset.armed!=='1'){
+    const r=await fetch('/api/optimizer/apply',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({wallet:wallet,param:param,suggest:suggest})});
+    const d=await r.json();
+    if(!d.ok){btn.textContent='Error: '+(d.error||'?');return;}
+    btn.textContent='Confirm: '+wallet+' '+d.diff.current_pct+' \u2192 '+d.diff.new_pct+' (tap again)';
+    btn.dataset.armed='1';
+    setTimeout(function(){if(btn.dataset.armed==='1'){btn.dataset.armed='0';btn.textContent='Apply';}},8000);
+    return;
+  }
+  btn.textContent='Applying\u2026';btn.disabled=true;
+  const r=await fetch('/api/optimizer/apply?confirm=1',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({wallet:wallet,param:param,suggest:suggest})});
+  const d=await r.json();
+  btn.textContent=d.ok?'\u2713 Applied':'Error: '+(d.error||'?');
+}
+function toggleTool(t){
+  const p=document.getElementById(t+'-panel');const c=document.getElementById(t+'-chevron');
+  const open=p.style.display==='none';
+  p.style.display=open?'block':'none';c.textContent=open?'\u25be':'\u25b8';
+  if(open&&!toolLoaded[t])loadTool(t,false);
+}
+async function refreshTool(t,btn){btn.textContent='\u27f3 Working\u2026';btn.disabled=true;await loadTool(t,true);btn.textContent=t==='golive'?'\u21bb Re-evaluate':'\u21bb Re-analyze';btn.disabled=false;}
+async function loadTool(t,force){
+  const el=document.getElementById(t+'-results');
+  try{
+    const r=await fetch('/api/'+t+(force?'?refresh=1':''));const d=await r.json();
+    if(!d.ok){el.innerHTML='<div class="empty-state">Error: '+(d.error||'?')+'</div>';return;}
+    if(t==='golive')renderGolive(d);else renderOptimizer(d);
+    toolLoaded[t]=true;
+  }catch(e){el.innerHTML='<div class="empty-state">Unreachable</div>';}
+}
+function renderGolive(d){
+  const el=document.getElementById('golive-results');
+  const vc={PASS:'var(--green)',PASS_NO_DD_OBSERVED:'#4da6ff',HOLD:'#e0a030',INSUFFICIENT_DATA:'#888'};
+  let html='';let passes=0;
+  d.wallets.forEach(w=>{
+    if(w.verdict.indexOf('PASS')===0)passes++;
+    const st=w.stats||{};
+    html+='<div class="scanner-card" style="border-left-color:'+(vc[w.verdict]||'#888')+'">'
+      +'<div><b>'+w.name+'</b> <span style="font-size:11px;opacity:.7">['+(w.species||'')+']</span> \u2014 <span style="font-weight:700;font-size:12px">'+w.verdict+'</span></div>'
+      +'<div class="scanner-stats">'+(st.stable_days||0)+'d stable \u00b7 '+(st.games||0)+'g \u00b7 '+(st.wr||0)+'% WR \u00b7 $'+(st.net||0)+' \u00b7 copy '+(st.copy_rate||0)+'%</div>'
+      +(w.reasons||[]).map(function(r){return '<div class="scanner-reason">\u2717 '+r+'</div>';}).join('')
+      +'<div class="scanner-reason" style="opacity:.5">manual: '+(w.manual_items||[]).join(', ')+'</div>'
+      +'</div>';
+  });
+  el.innerHTML=html;
+  document.getElementById('golive-summary').textContent=passes?(passes+' PASS'):'all hold';
+}
+function renderOptimizer(d){
+  const el=document.getElementById('optimizer-results');
+  let html='';let nrecs=0;
+  d.wallets.forEach(w=>{
+    html+='<div class="scanner-card" style="border-left-color:'+(w.verdict==='ANALYZED'?'#4da6ff':'#888')+'">'
+      +'<div><b>'+w.name+'</b> <span style="font-size:11px;opacity:.7">['+(w.species||'')+']</span></div>';
+    if(w.verdict!=='ANALYZED'){html+='<div class="scanner-reason">'+(w.note||w.verdict)+'</div></div>';return;}
+    html+='<div class="scanner-stats">'+Object.entries(w.evidence||{}).map(function(kv){return kv[0].replace(/_/g,' ')+': '+kv[1];}).join(' \u00b7 ')+'</div>';
+    (w.recs||[]).forEach(function(r){nrecs++;
+      html+='<div class="scanner-reason" style="color:var(--text)">\u2192 <b>'+r.param+'</b>: '+r.current+' \u2192 '+r.suggest+'</div>'
+        +'<div class="scanner-reason">'+r.why+'</div>'
+        +(r.caveat?'<div class="scanner-reason" style="opacity:.5">\u26a0 '+r.caveat+'</div>':'')
+        +(r.param==='base_usd'?'<button onclick="applyRec(this,\''+w.name+'\',\''+r.param+'\','+r.suggest+')" style="width:100%;margin-top:6px;padding:7px;background:var(--green-dim);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--green);font-size:11px;font-weight:600;cursor:pointer;">Apply</button>':'');
+    });
+    html+='</div>';
+  });
+  const notes=(d.portfolio&&d.portfolio.notes)||[];
+  if(notes.length)html+='<div class="scanner-card" style="border-left-color:#e0a030"><div><b>Portfolio</b></div>'+notes.map(function(n){return '<div class="scanner-reason">\u26a0 '+n+'</div>';}).join('')+'</div>';
+  el.innerHTML=html;
+  document.getElementById('optimizer-summary').textContent=nrecs?(nrecs+' rec'+(nrecs>1?'s':'')):'no changes';
+}
 function renderLiveWallets(wallets){
   const el=document.getElementById('live-wallet-list');
   if(!el) return;
@@ -684,6 +770,7 @@ function renderLiveWallets(wallets){
         <div class="wallet-stat"><div class="wallet-stat-val">${hasActivity?w.win_rate+'%':'—'}</div><div class="wallet-stat-lbl">Win Rate</div></div>
       </div>
       ${w.address?`<div style="display:flex;gap:6px;margin-top:10px;" onclick="event.stopPropagation()">
+        <button onclick="openPositions('${escapeHtml(w.trader)}')" style="flex:1;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);font-size:11px;font-weight:600;font-family:var(--sans);cursor:pointer;">📊 Positions</button>
         <a href="https://polymarket.com/profile/${w.address}" target="_blank" style="flex:1;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);font-size:11px;font-weight:600;font-family:var(--sans);cursor:pointer;text-align:center;text-decoration:none;">↗ Profile</a>
         <button onclick="demoteLiveToShadow('${w.address}','${escapeHtml(w.trader)}',this)" style="flex:1;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);font-size:11px;font-weight:600;font-family:var(--sans);cursor:pointer;">↓ Demote</button>
       </div>`:''}

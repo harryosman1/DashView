@@ -1,0 +1,45 @@
+{
+ "_doc": "Policy-change dates per wallet (sizing %, bands, deviation \u2014 NOT base_usd drift). Gate reads this for config-stability. Optimizer Apply must append here.",
+ "ferrarichampions2026": [
+  {
+   "date": "2026-07-07",
+   "change": "sizing 2%->1%, capital reset, band 0.50-0.85, watchdog >6h+60%"
+  }
+ ],
+ "Sportmaster777": [
+  {
+   "date": "2026-07-07",
+   "change": "band 0.50-0.85, dev 4%, watchdog >6h+60%"
+  }
+ ],
+ "Sportmaster777_wide": [
+  {
+   "date": "2026-07-07",
+   "change": "band 0.50-0.85, dev 6%, watchdog >6h+75%"
+  }
+ ],
+ "dv-pm": [
+  {
+   "date": "2026-07-07",
+   "change": "sizing 1.5%->1%, band, watchdog >48h+70%"
+  },
+  {
+   "date": "2026-07-09",
+   "change": "unfroze (passive)"
+  }
+ ],
+ "Rin2x": [
+  {
+   "date": "2026-07-07",
+   "change": "sizing 1%->2%"
+  },
+  {
+   "date": "2026-07-11",
+   "change": "sizing 2%->3% (capture/min-size raise)"
+  },
+  {
+   "date": "2026-07-13",
+   "change": "sizing 3%->2.5% \u2014 3% overshot the $600 pool (15% capital skips). $600 = Harry real go-live capital, so config must fit it. Rule: capital skips persist by Jul 16-17 -> 2%."
+  }
+ ]
+}
