@@ -288,7 +288,10 @@ def get_live_pnl_by_wallet():
                 continue
             if t not in by_trader:
                 by_trader[t] = {"realized": 0.0, "wins": 0, "losses": 0, "open_positions": 0, "unrealized": 0.0}
-            by_trader[t]["open_positions"] += 1
+            # count DISTINCT MARKETS, not entry rows — scale-ins create
+            # multiple detail rows per cid (e.g. ferrari: 52 rows / 40 markets)
+            by_trader[t].setdefault("_open_cids", set()).add(o.condition_id)
+            by_trader[t]["open_positions"] = len(by_trader[t]["_open_cids"])
             if o.unrealized_pnl is not None:
                 by_trader[t]["unrealized"] += o.unrealized_pnl
 
@@ -491,7 +494,12 @@ def api_data():
 def api_positions(trader):
     try:
         import json
-        log_path = BOT_DIR / "logs" / "shadow_decisions.jsonl"
+        import yaml as _yaml
+        _roster = _yaml.safe_load(open(BOT_DIR / "config" / "roster.yaml"))
+        _live_names = {e.get("name") for e in _roster if e.get("tier") == "live"}
+        _is_live = trader in _live_names
+        log_path = BOT_DIR / "logs" / ("paper_trades.jsonl" if _is_live else "shadow_decisions.jsonl")
+        _RES = {"resolved", "stop_loss_triggered", "stop_loss_live", "profit_take_triggered"} if _is_live else {"shadow_resolution"}
         if not log_path.exists():
             return jsonify({"positions": [], "error": "No log file"})
 
@@ -510,7 +518,7 @@ def api_positions(trader):
                 decision = d.get("decision", "")
                 if not cid:
                     continue
-                if decision == "shadow_resolution":
+                if decision in _RES:
                     resolved[cid] = {
                         "resolution_pnl": d.get("pnl", d.get("our_pnl", None)),
                         "question": d.get("question", ""),
@@ -519,7 +527,9 @@ def api_positions(trader):
                         "their_price": d.get("their_price", 0),
                         "timestamp": d.get("timestamp", 0),
                     }
-                elif cid not in opened:
+                elif (not _is_live or decision == "copy") and cid not in opened:
+                    # live log: only copies are positions (skips would flood
+                    # the shadowing bucket); shadow log keeps original behavior
                     opened[cid] = {
                         "condition_id": cid,
                         "question": d.get("question", ""),
