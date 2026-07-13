@@ -666,6 +666,14 @@ function renderLive(live){
   }
 }
 
+function agoStr(ts){if(!ts)return null;const m=(Date.now()/1000-ts)/60;if(m<60)return Math.round(m)+'m';if(m<1440)return (m/60).toFixed(1)+'h';return Math.round(m/1440)+'d';}
+function freshLine(w){
+  const d=agoStr(w.last_decision_ts),c=agoStr(w.last_copy_ts);
+  if(!d)return '';
+  const dm=(Date.now()/1000-w.last_decision_ts)/60;
+  const col=dm>120?'var(--red)':dm>45?'#e0a030':'var(--muted)';
+  return '<span style="color:'+col+'">last decision '+d+' ago</span>'+(c?' \u00b7 last copy '+c+' ago':'');
+}
 const toolLoaded={golive:false,optimizer:false};
 async function applyRec(btn,wallet,param,suggest){
   if(btn.dataset.armed!=='1'){
@@ -769,6 +777,7 @@ function renderLiveWallets(wallets){
         <div class="wallet-stat"><div class="wallet-stat-val">${w.base_usd!=null?'$'+w.base_usd.toFixed(2):'—'}</div><div class="wallet-stat-lbl">Bet Size</div></div>
         <div class="wallet-stat"><div class="wallet-stat-val">${hasActivity?w.win_rate+'%':'—'}</div><div class="wallet-stat-lbl">Win Rate</div></div>
       </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:5px;text-align:center;">${freshLine(w)}</div>
       ${w.address?`<div style="display:flex;gap:6px;margin-top:10px;" onclick="event.stopPropagation()">
         <button onclick="openPositions('${escapeHtml(w.trader)}')" style="flex:1;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);font-size:11px;font-weight:600;font-family:var(--sans);cursor:pointer;">📊 Positions</button>
         <a href="https://polymarket.com/profile/${w.address}" target="_blank" style="flex:1;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);font-size:11px;font-weight:600;font-family:var(--sans);cursor:pointer;text-align:center;text-decoration:none;">↗ Profile</a>

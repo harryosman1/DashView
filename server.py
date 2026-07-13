@@ -298,6 +298,7 @@ def get_live_pnl_by_wallet():
         # Build result — one entry per live-tier wallet, always included
         # even if zero trades. total_value computed against each wallet's
         # OWN starting_capital for true standalone portfolio tracking.
+        _fresh = _freshness_by_trader({w["name"] for w in live_roster})
         result = []
         for w in live_roster:
             name = w["name"]
@@ -328,6 +329,8 @@ def get_live_pnl_by_wallet():
                 "address": w["address"],
                 "starting_capital": display_start,
                 "base_usd": w.get("base_usd"),
+                "last_copy_ts": _fresh.get(name, {}).get("last_copy", 0),
+                "last_decision_ts": _fresh.get(name, {}).get("last_decision", 0),
                 "realized": round(realized, 2),
                 "unrealized": round(unrealized, 2),
                 "combined": round(combined, 2),
@@ -2017,6 +2020,41 @@ def api_optimizer_apply():
     except Exception as e:
         logger.error(f"apply failed: {e}")
         return jsonify({"ok": False, "error": str(e)})
+
+
+
+def _freshness_by_trader(live_names, tail_bytes=4_000_000):
+    """Last copy + last any-decision ts per trader. Reads only the log
+    tail (default 4MB ~ several hours at current volume) — full-file
+    reads on every poll caused the Jun 19 /api/events OOM."""
+    import json as _json
+    path = BOT_DIR / "logs" / "paper_trades.jsonl"
+    out = {n: {"last_copy": 0, "last_decision": 0} for n in live_names}
+    try:
+        with open(path, "rb") as f:
+            f.seek(0, 2)
+            size = f.tell()
+            f.seek(max(0, size - tail_bytes))
+            if size > tail_bytes:
+                f.readline()  # discard partial line
+            for raw in f:
+                try:
+                    d = _json.loads(raw)
+                except Exception:
+                    continue
+                t = d.get("trader")
+                if t not in out:
+                    continue
+                ts = float(d.get("timestamp") or 0)
+                dec = d.get("decision", "")
+                if dec == "copy" or dec.startswith("skip"):
+                    if ts > out[t]["last_decision"]:
+                        out[t]["last_decision"] = ts
+                if dec == "copy" and ts > out[t]["last_copy"]:
+                    out[t]["last_copy"] = ts
+    except Exception:
+        pass
+    return out
 
 
 if __name__ == "__main__":
