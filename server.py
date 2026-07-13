@@ -523,7 +523,7 @@ def api_positions(trader):
                     continue
                 if decision in _RES:
                     resolved[cid] = {
-                        "resolution_pnl": d.get("pnl", d.get("our_pnl", None)),
+                        "resolution_pnl": d.get("realized_pnl_override", d.get("pnl", d.get("our_pnl", None))),
                         "question": d.get("question", ""),
                         "outcome": d.get("outcome", ""),
                         "slug": d.get("slug", ""),
