@@ -543,7 +543,32 @@ def api_positions(trader):
                         "decision": decision,
                     }
 
-        open_pos = {cid: d for cid, d in opened.items() if cid not in resolved}
+        if _is_live:
+            # authoritative open positions from pnl_cache (standing rule:
+            # never re-derive position state from log replay — Rin2x's
+            # multi-outcome markets proved cid-level replay diverges)
+            from src.pnl_cache import get_cached_pnl as _gcp
+            _pnl = _gcp()
+            _seen = set()
+            open_pos = {}
+            for _o in _pnl.open_positions_detail:
+                if _o.trader != trader or _o.condition_id in _seen:
+                    continue
+                _seen.add(_o.condition_id)
+                _meta = opened.get(_o.condition_id, {})
+                open_pos[_o.condition_id] = {
+                    "condition_id": _o.condition_id,
+                    "question": _meta.get("question") or getattr(_o, "question", "") or "",
+                    "outcome": _meta.get("outcome") or getattr(_o, "outcome", "") or "",
+                    "slug": _meta.get("slug") or getattr(_o, "slug", "") or "",
+                    "their_price": _meta.get("their_price", 0),
+                    "our_would_be_size": _meta.get("our_would_be_size", 0),
+                    "current_mid": _meta.get("current_mid", 0),
+                    "timestamp": _meta.get("timestamp", 0),
+                    "decision": "copy",
+                }
+        else:
+            open_pos = {cid: d for cid, d in opened.items() if cid not in resolved}
         # Merge opened data into resolved so question/outcome/slug are always present
         closed_pos = {}
         for cid, v in resolved.items():
