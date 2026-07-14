@@ -14,3 +14,10 @@ watchdog.sh
 *.bak_before_live_wallets
 *.bak_before_deep_button
 *.bak_before_screener_display_fix
+# runtime caches & logs
+*_cache.json
+scanner_cron.log
+config.json
+push_subscriptions.json*
+# local backups
+*.bak-*
