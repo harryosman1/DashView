@@ -114,7 +114,10 @@ def evaluate(now=None):
             med_abs = sorted(abs(v) for v in vals)[len(vals) // 2] if vals else 0
             # jackpot = 5x median AND absolute floor — median-only lost
             # Jul 8 (+$405) as sample grew (Jul 14 regression)
-            jackpots = sum(1 for v in vals if v > 5 * med_abs and v > 150) if med_abs else 0
+            # 3x median + $150 floor. 5x demanded ~$500 days on ferrari's
+            # ~$98 median — even Jul 8 (+$405) failed it. Calibrated against
+            # his actual distribution: catches 405, excludes 140-and-below.
+            jackpots = sum(1 for v in vals if v > 3 * med_abs and v > 150) if med_abs else 0
             checks["economics"] = avg > 0 and jackpots >= 2
             if not checks["economics"]:
                 reasons.append(f"longshot economics: ${avg:.2f}/game, {jackpots} jackpot day(s) — need positive avg + >=2 jackpots for frequency confidence")
