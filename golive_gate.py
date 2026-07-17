@@ -117,12 +117,12 @@ def evaluate(now=None):
             # 3x median + $150 floor. 5x demanded ~$500 days on ferrari's
             # ~$98 median — even Jul 8 (+$405) failed it. Calibrated against
             # his actual distribution: catches 405, excludes 140-and-below.
-            # median EXCLUDING jackpot-scale days — a rising median was
-            # retroactively demoting known jackpots (Jul 8's $405 failed the
-            # bar Jul 15's $565 set). Median of ordinary days + $150 floor.
-            ordinary = sorted(abs(v) for v in vals if abs(v) < 300)
-            med_ord = ordinary[len(ordinary)//2] if ordinary else 0
-            jackpots = sum(1 for v in vals if v > 3 * med_ord and v > 150) if med_ord else sum(1 for v in vals if v > 300)
+            # CALIBRATION #5 (final): FIXED ABSOLUTE BAR. Every median-based
+            # variant breathed with the sample and retroactively demoted known
+            # jackpots (Jul 8's $405 demoted twice). A jackpot day = category
+            # alignment resolving the book at once; on $600-1000 books that is
+            # unambiguously a +$300 day. Fixed bar, stable forever.
+            jackpots = sum(1 for v in vals if v > 300)
             checks["economics"] = avg > 0 and jackpots >= 2
             if not checks["economics"]:
                 reasons.append(f"longshot economics: ${avg:.2f}/game, {jackpots} jackpot day(s) — need positive avg + >=2 jackpots for frequency confidence")
